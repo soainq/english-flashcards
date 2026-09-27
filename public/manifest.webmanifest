@@ -1,0 +1,14 @@
+{
+  "name": "Fluent — English for UI/UX",
+  "short_name": "Fluent",
+  "description": "Lộ trình tiếng Anh từ mất gốc đến IELTS 6.5 cho UI/UX Designer",
+  "start_url": "./simple/",
+  "display": "standalone",
+  "background_color": "#f6f2e9",
+  "theme_color": "#f6f2e9",
+  "lang": "vi",
+  "icons": [
+    { "src": "./icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "./icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

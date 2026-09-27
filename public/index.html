@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f2e9">
+  <meta name="description" content="Lộ trình tiếng Anh từ mất gốc đến IELTS 6.5 dành cho UI/UX Designer.">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon-192.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <title>Fluent — English for UI/UX</title>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Điều hướng chính">
+      <a class="brand" href="#today" aria-label="Fluent, về trang hôm nay">
+        <span class="brand-mark" aria-hidden="true">F</span>
+        <span><b>fluent</b><small>English for UI/UX</small></span>
+      </a>
+
+      <nav class="main-nav">
+        <button class="nav-item active" data-view="today"><span data-icon="home"></span>Hôm nay</button>
+        <button class="nav-item" data-view="roadmap"><span data-icon="map"></span>Lộ trình</button>
+        <button class="nav-item" data-view="practice"><span data-icon="cards"></span>Ôn tập <em id="reviewCount">0</em></button>
+        <button class="nav-item" data-view="pronunciation"><span data-icon="mic"></span>Phát âm</button>
+        <button class="nav-item" data-view="progress"><span data-icon="chart"></span>Tiến độ</button>
+      </nav>
+
+      <div class="side-quote">
+        <span class="quote-icon">“</span>
+        <p>Small steps, every day.</p>
+        <small>Giỏi lên từng chút một.</small>
+      </div>
+
+      <button class="profile-card" id="profileButton">
+        <span class="avatar" id="avatar">B</span>
+        <span class="profile-copy"><b id="profileName">Bạn</b><small id="syncLabel">Chỉ lưu trên máy</small></span>
+        <span data-icon="settings"></span>
+      </button>
+    </aside>
+
+    <main class="main-content">
+      <header class="mobile-header">
+        <a class="brand" href="#today"><span class="brand-mark">F</span><b>fluent</b></a>
+        <button class="icon-button" id="mobileProfileButton" aria-label="Mở hồ sơ"><span data-icon="user"></span></button>
+      </header>
+
+      <section class="view active" id="view-today" aria-labelledby="todayTitle">
+        <div class="page-heading today-heading">
+          <div>
+            <p class="eyebrow" id="dateLabel"></p>
+            <h1 id="todayTitle">Chào buổi sáng, <span id="greetingName">bạn</span> <span aria-hidden="true">👋</span></h1>
+            <p>Mỗi ngày một chút, tiếng Anh sẽ thành phản xạ.</p>
+          </div>
+          <button class="streak-pill" data-go="progress" aria-label="Xem chuỗi ngày học"><span aria-hidden="true">🔥</span><b id="streakTop">0</b><span>ngày liên tiếp</span></button>
+        </div>
+
+        <article class="lesson-hero" id="lessonHero">
+          <div class="hero-copy">
+            <div class="hero-topline"><span class="level-chip" id="lessonLevel">A1 · NỀN TẢNG</span><span class="duration"><span data-icon="clock"></span>15 phút</span></div>
+            <p class="lesson-number" id="lessonNumber">BÀI HỌC 01</p>
+            <h2 id="lessonTitle">Chào hỏi & giới thiệu bản thân</h2>
+            <p id="lessonDescription">Bắt đầu một cuộc trò chuyện tự nhiên và tự tin giới thiệu về công việc của bạn.</p>
+            <div class="hero-actions">
+              <button class="primary-button" id="startLesson"><span data-icon="play"></span><span id="startLessonText">Bắt đầu bài học</span></button>
+              <button class="round-button" id="previousDay" aria-label="Bài trước"><span data-icon="left"></span></button>
+              <button class="round-button" id="nextDay" aria-label="Bài sau"><span data-icon="right"></span></button>
+            </div>
+          </div>
+          <div class="hero-visual" aria-hidden="true">
+            <div class="orbital orbital-one"></div><div class="orbital orbital-two"></div>
+            <div class="word-bubble word-one">Hello!</div>
+            <div class="word-bubble word-two">Nice to meet you</div>
+            <div class="speech-shape"><span>Hi</span><i></i><i></i></div>
+          </div>
+        </article>
+
+        <div class="section-title-row">
+          <div><p class="eyebrow">TỪ VỰNG MỖI NGÀY</p><h2>Từ mới hôm nay</h2></div>
+          <span id="wordProgress">0/7 từ đã nhớ</span>
+        </div>
+        <div class="word-grid" id="wordGrid"></div>
+
+        <div class="section-title-row phrase-header">
+          <div><p class="eyebrow">PHẢN XẠ GIAO TIẾP</p><h2>Câu nói thông dụng</h2></div>
+          <button class="shuffle-button" id="shufflePhrases"><span data-icon="shuffle"></span>Đổi câu khác</button>
+        </div>
+        <div class="phrase-list" id="phraseList"></div>
+
+        <article class="complete-card">
+          <div><span class="complete-icon" data-icon="check"></span><div><b id="completeTitle">Hoàn thành bài học hôm nay</b><p id="completeHint">Học các từ và luyện câu mẫu trước khi đánh dấu hoàn thành.</p></div></div>
+          <button class="secondary-button" id="completeLesson">Đánh dấu hoàn thành</button>
+        </article>
+      </section>
+
+      <section class="view" id="view-roadmap" aria-labelledby="roadmapTitle">
+        <div class="page-heading">
+          <div><p class="eyebrow">24 TUẦN · 4 CHẶNG</p><h1 id="roadmapTitle">Từ mất gốc đến IELTS 6.5</h1><p>Mỗi tuần 6 ngày học và 1 ngày ôn, khoảng 35–45 phút mỗi ngày.</p></div>
+        </div>
+        <div class="roadmap-summary" id="roadmapSummary"></div>
+        <div class="roadmap-list" id="roadmapList"></div>
+      </section>
+
+      <section class="view" id="view-practice" aria-labelledby="practiceTitle">
+        <div class="page-heading">
+          <div><p class="eyebrow">SPACED REPETITION</p><h1 id="practiceTitle">Ôn đúng lúc, nhớ thật lâu</h1><p>Những từ bạn sắp quên sẽ tự động xuất hiện ở đây.</p></div>
+        </div>
+        <article class="practice-shell" id="practiceShell"></article>
+      </section>
+
+      <section class="view" id="view-pronunciation" aria-labelledby="pronunciationTitle">
+        <div class="page-heading">
+          <div><p class="eyebrow">NGHE · NHẠI · GHI ÂM</p><h1 id="pronunciationTitle">Phát âm rõ trước, nhanh sau</h1><p>Tập trung vào khẩu hình, trọng âm và nối âm — không cần ép mình nói giống người bản xứ.</p></div>
+        </div>
+        <div class="pronunciation-grid" id="pronunciationContent"></div>
+      </section>
+
+      <section class="view" id="view-progress" aria-labelledby="progressTitle">
+        <div class="page-heading">
+          <div><p class="eyebrow">TIẾN ĐỘ CỦA BẠN</p><h1 id="progressTitle">Nhìn lại để đi xa hơn</h1><p>Tích lũy nhỏ mỗi ngày sẽ tạo ra thay đổi lớn sau 24 tuần.</p></div>
+        </div>
+        <div class="stat-grid" id="statGrid"></div>
+        <article class="activity-card"><div class="section-title-row"><div><p class="eyebrow">28 NGÀY GẦN NHẤT</p><h2>Nhịp học tập</h2></div></div><div class="activity-grid" id="activityGrid"></div></article>
+        <article class="sync-banner"><div><span class="sync-icon" data-icon="cloud"></span><div><b>Giữ tiến độ trên mọi thiết bị</b><p>Đăng nhập cùng mã hồ sơ và PIN trên điện thoại, máy tính bảng hoặc laptop.</p></div></div><button class="secondary-button" id="syncCta">Thiết lập đồng bộ</button></article>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Điều hướng di động">
+      <button class="nav-item active" data-view="today"><span data-icon="home"></span><small>Hôm nay</small></button>
+      <button class="nav-item" data-view="roadmap"><span data-icon="map"></span><small>Lộ trình</small></button>
+      <button class="nav-item main-action" data-view="practice"><span data-icon="cards"></span><small>Ôn tập</small></button>
+      <button class="nav-item" data-view="pronunciation"><span data-icon="mic"></span><small>Phát âm</small></button>
+      <button class="nav-item" data-view="progress"><span data-icon="chart"></span><small>Tiến độ</small></button>
+    </nav>
+  </div>
+
+  <dialog id="lessonDialog" class="lesson-dialog">
+    <button class="dialog-close" data-close-dialog aria-label="Đóng"><span data-icon="close"></span></button>
+    <div id="lessonDialogContent"></div>
+  </dialog>
+
+  <dialog id="profileDialog" class="profile-dialog">
+    <button class="dialog-close" data-close-dialog aria-label="Đóng"><span data-icon="close"></span></button>
+    <div class="dialog-heading"><span class="dialog-icon" data-icon="cloud"></span><div><p class="eyebrow">ĐỒNG BỘ ĐA THIẾT BỊ</p><h2>Hồ sơ học tập</h2></div></div>
+    <p class="dialog-description">Dùng cùng mã hồ sơ và PIN trên thiết bị khác để lấy lại toàn bộ tiến độ.</p>
+    <form id="profileForm">
+      <label>Tên hiển thị<input id="displayNameInput" name="displayName" autocomplete="name" maxlength="40" placeholder="Ví dụ: An"></label>
+      <label>Mã hồ sơ<input id="profileIdInput" name="profileId" autocapitalize="none" autocomplete="username" maxlength="40" placeholder="Ví dụ: an-uiux"></label>
+      <label>PIN bí mật<input id="pinInput" name="pin" type="password" inputmode="numeric" autocomplete="current-password" minlength="4" maxlength="64" placeholder="Tối thiểu 4 ký tự"></label>
+      <p class="form-note">Lần đầu đăng nhập sẽ tạo hồ sơ mới. Hãy nhớ mã hồ sơ và PIN — máy chủ không thể xem lại PIN của bạn.</p>
+      <p class="form-error" id="profileError" role="alert"></p>
+      <button class="primary-button full-button" type="submit"><span data-icon="cloud"></span>Kết nối & đồng bộ</button>
+    </form>
+    <button class="text-button hidden" id="logoutButton">Đăng xuất khỏi hồ sơ này</button>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="/content.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
