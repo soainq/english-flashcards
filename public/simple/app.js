@@ -315,6 +315,17 @@
     return String(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
+  function exampleRows(item, listClass) {
+    const translations = item.exampleTranslations || [item.translation];
+    const audioPaths = item.exampleAudioPaths || [];
+    return `<span class="${listClass}" role="list">${item.examples.slice(0, 5).map((example, index) => {
+      const translation = translations[index] || '';
+      const audioPath = audioPaths[index] || '';
+      const audioId = `${item.id}:example:${index}`;
+      return `<span class="example-row" role="listitem"><i aria-hidden="true">${index + 1}</i><span class="example-copy"><span>${example}</span>${translation ? `<small>${translation}</small>` : ''}</span>${audioPath ? `<button type="button" class="example-voice" data-audio-id="${escapeAttribute(audioId)}" data-audio-path="${escapeAttribute(audioPath)}" data-audio-label="câu mẫu ${index + 1}" aria-pressed="false" aria-label="Nghe câu mẫu ${index + 1}">${voiceIcon}</button>` : ''}</span>`;
+    }).join('')}</span>`;
+  }
+
   function setAudioVisualState(id, status) {
     currentAudioId = id || '';
     audioState = status;
@@ -323,8 +334,9 @@
       button.classList.toggle('loading', active && audioState === 'loading');
       button.classList.toggle('playing', active && audioState === 'playing');
       button.setAttribute('aria-pressed', String(active && audioState === 'playing'));
-      const word = allWords.get(button.dataset.audioId)?.word || 'từ này';
-      button.setAttribute('aria-label', active && audioState === 'playing' ? `Đang phát âm ${word}` : `Nghe phát âm ${word}`);
+      const word = allWords.get(button.dataset.audioId)?.word;
+      const label = button.dataset.audioLabel || (word ? `phát âm ${word}` : 'âm thanh');
+      button.setAttribute('aria-label', active && audioState === 'playing' ? `Đang phát ${label}` : `Nghe ${label}`);
     });
   }
 
@@ -333,26 +345,30 @@
     return new URL(`../${String(path).replace(/^\/+/, '')}`, document.baseURI).href;
   }
 
-  function playWord(item) {
+  function playAudioClip(id, label, audioPath) {
     if (currentAudio) {
       currentAudio.pause();
       currentAudio.currentTime = 0;
     }
-    const audioPath = item.audioPath || `/audio/${item.sourceDay + 1}-${item.sourceIndex + 1}-word.mp3`;
     const audio = new Audio(publicAssetUrl(audioPath));
     currentAudio = audio;
     audio.playbackRate = audioSpeed;
-    setAudioVisualState(item.id, 'loading');
-    audio.addEventListener('playing', () => setAudioVisualState(item.id, 'playing'), { once: true });
+    setAudioVisualState(id, 'loading');
+    audio.addEventListener('playing', () => setAudioVisualState(id, 'playing'), { once: true });
     audio.addEventListener('ended', () => setAudioVisualState('', 'idle'), { once: true });
     audio.addEventListener('error', () => {
       setAudioVisualState('', 'idle');
-      showToast('Không phát được giọng mẫu. Hãy kiểm tra kết nối.');
+      showToast(`Không phát được ${label}. Hãy kiểm tra kết nối.`);
     }, { once: true });
     audio.play().catch(() => {
       setAudioVisualState('', 'idle');
       showToast('Trình duyệt đang chặn âm thanh. Hãy chạm lại nút loa.');
     });
+  }
+
+  function playWord(item) {
+    const audioPath = item.audioPath || `/audio/${item.sourceDay + 1}-${item.sourceIndex + 1}-word.mp3`;
+    playAudioClip(item.id, `phát âm ${item.word}`, audioPath);
   }
 
   function cycleAudioSpeed() {
@@ -489,14 +505,14 @@
                 <small class="flip-label">CHẠM ĐỂ XEM NGHĨA VÀ CÂU MẪU</small>
               </span>
             </button>
-            <button type="button" class="study-face study-back flip-surface" data-flip data-study-face="back" aria-hidden="${!revealed}" ${revealed ? '' : 'inert'}>
+            <div class="study-face study-back flip-surface" data-flip data-study-face="back" tabindex="0" role="button" aria-label="Mặt sau của thẻ. Chạm để quay lại từ." aria-hidden="${!revealed}" ${revealed ? '' : 'inert'}>
               <span class="meaning-view">
               <span class="meaning-word">${item.word}</span><span class="ipa">${item.ipa}</span>
               <strong>${item.meaning}</strong>
-              <span class="example-list" role="list">${item.examples.slice(0, 5).map((example, index) => `<span role="listitem"><i aria-hidden="true">${index + 1}</i><span>${example}${index === 0 && item.translation ? `<small class="first-translation">${item.translation}</small>` : ''}</span></span>`).join('')}</span>
+              ${exampleRows(item, 'example-list')}
               <small class="flip-label">CHẠM ĐỂ QUAY LẠI MẶT TỪ</small>
               </span>
-            </button>
+            </div>
           </div>
         </div>
         <div class="audio-controls">
@@ -764,12 +780,12 @@
           <button type="button" class="voice-mini deck-voice" data-audio-id="${escapeAttribute(item.id)}" aria-pressed="false" aria-label="Nghe phát âm ${escapeAttribute(item.word)}">${voiceIcon}</button>
         </section>
         <section class="deck-face deck-back" aria-hidden="true" inert>
-          <button type="button" class="deck-flip-surface deck-back-content" data-card-flip>
+          <div class="deck-flip-surface deck-back-content" data-card-flip tabindex="0" role="button" aria-label="Mặt sau của thẻ. Chạm để xem lại từ.">
             <span class="meaning-label">NGHĨA CỦA ${item.word}</span>
             <strong class="deck-meaning">${item.meaning}</strong>
-            <span class="deck-examples" role="list">${item.examples.slice(0, 5).map((example, index) => `<span role="listitem"><i aria-hidden="true">${index + 1}</i><span>${example}${index === 0 && item.translation ? `<small>${item.translation}</small>` : ''}</span></span>`).join('')}</span>
+            ${exampleRows(item, 'deck-examples')}
             <small class="deck-back-hint">CHẠM ĐỂ XEM LẠI TỪ</small>
-          </button>
+          </div>
         </section>
       </div>
     </article>`;
@@ -1005,8 +1021,11 @@
     }
     const audio = event.target.closest('[data-audio-id]');
     if (audio) {
-      const item = allWords.get(audio.dataset.audioId);
-      if (item) playWord(item);
+      if (audio.dataset.audioPath) playAudioClip(audio.dataset.audioId, audio.dataset.audioLabel || 'câu mẫu', audio.dataset.audioPath);
+      else {
+        const item = allWords.get(audio.dataset.audioId);
+        if (item) playWord(item);
+      }
       return;
     }
     if (event.target.closest('[data-audio-speed]')) { cycleAudioSpeed(); return; }
@@ -1038,6 +1057,16 @@
   });
 
   document.addEventListener('keydown', (event) => {
+    if ((event.key === ' ' || event.key === 'Enter') && event.target.matches('[data-flip]')) {
+      event.preventDefault();
+      toggleStudyCard();
+      return;
+    }
+    if ((event.key === ' ' || event.key === 'Enter') && event.target.matches('[data-card-flip]')) {
+      event.preventDefault();
+      flipLibraryCard(event.target.closest('.deck-card'));
+      return;
+    }
     if (!$('#view-today').classList.contains('active') || $('#profileDialog').open) return;
     if (event.target.closest('button, input, select, textarea, a')) return;
     if (event.key === 'ArrowLeft') { event.preventDefault(); changeWord(-1); }

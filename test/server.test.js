@@ -31,6 +31,10 @@ test('ships a real audio file instead of relying on browser speech', async () =>
   assert.ok(stat.size > 5_000);
   const themedAudio = await fs.stat(path.join(audioDirectory, 'themes', 'animals-1-1.mp3'));
   assert.ok(themedAudio.size > 2_000);
+  const themedSentence = await fs.stat(path.join(audioDirectory, 'themes', 'objects-7-1-example-1.mp3'));
+  assert.ok(themedSentence.size > 2_000);
+  const openSentence = await fs.stat(path.join(audioDirectory, 'open', 'open-food-1-1-example-3.mp3'));
+  assert.ok(openSentence.size > 2_000);
 });
 
 test('builds four weekly topics with seven ten-word daily groups', () => {
@@ -46,6 +50,9 @@ test('builds four weekly topics with seven ten-word daily groups', () => {
   assert.equal(window.SIMPLE_CONTENT.uiux.length, 70);
   assert.equal(window.SIMPLE_CONTENT.all.length, 380);
   assert.ok(window.SIMPLE_CONTENT.all.every((item) => item.examples.length === 3));
+  const curriculumWords = window.SIMPLE_CONTENT.curriculum.flatMap((topic) => topic.days.flatMap((day) => day.words));
+  assert.ok(curriculumWords.every((item) => item.exampleTranslations.length === item.examples.length));
+  assert.ok(curriculumWords.every((item) => item.exampleAudioPaths.length === item.examples.length));
   delete global.window;
 });
 
@@ -57,6 +64,8 @@ test('adds open-data topics with complete meanings and pronunciation', () => {
   const words = window.OPEN_VOCABULARY.curriculum.flatMap((topic) => topic.days.flatMap((day) => day.words));
   assert.equal(words.length, 140);
   assert.ok(words.every((word) => word.meaning && word.ipa && word.examples.length >= 3));
+  assert.ok(words.every((word) => word.exampleTranslations.length === word.examples.length));
+  assert.ok(words.every((word) => word.exampleAudioPaths.length === word.examples.length));
   delete global.window;
 });
 

@@ -198,14 +198,20 @@ dialog input { height: 44px; padding: 0 12px; border: 1px solid var(--line); bor
 .meaning-view > .ipa { margin-top: 4px; color: var(--brand); font-size: 14px; }
 .meaning-view > strong { margin: 22px 0 16px; color: var(--brand-dark); font-size: 23px; line-height: 1.25; }
 .example-list { width: 100%; display: grid; gap: 10px; }
-.example-list > span { display: grid; grid-template-columns: 24px 1fr; gap: 5px; font-size: 14px; line-height: 1.5; }
+.example-list > span { display: grid; grid-template-columns: 24px minmax(0,1fr) 32px; align-items: start; gap: 7px; font-size: 14px; line-height: 1.5; }
 .example-list i { width: 21px; height: 21px; display: inline-grid; place-items: center; border-radius: 50%; color: #9f422a; background: var(--accent-soft); font-size: 11px; font-style: normal; font-weight: 800; }
+.example-copy { min-width: 0; }
+.example-copy > span { display: block; }
+.example-copy small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.example-voice { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 50%; color: var(--brand); background: var(--brand-soft); }
+.example-voice:hover, .example-voice:focus-visible { color: #fff; background: var(--brand); }
+.example-voice svg { width: 15px; height: 15px; }
 .meaning-view .flip-label { align-self: center; }
 .audio-controls { position: absolute; z-index: 2; left: 50%; bottom: 16px; display: flex; align-items: center; gap: 8px; transform: translateX(-50%); }
 .voice-button { width: 48px; height: 48px; margin: 0; }
 .speed-button { min-width: 48px; height: 44px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); background: var(--surface); font-size: 12px; font-weight: 800; }
-.voice-button.loading svg, .voice-mini.loading svg { animation: audioPulse .75s ease-in-out infinite alternate; }
-.voice-button.playing, .voice-mini.playing { color: #fff; background: var(--brand); box-shadow: 0 0 0 6px rgba(23,107,91,.12); }
+.voice-button.loading svg, .voice-mini.loading svg, .example-voice.loading svg { animation: audioPulse .75s ease-in-out infinite alternate; }
+.voice-button.playing, .voice-mini.playing, .example-voice.playing { color: #fff; background: var(--brand); box-shadow: 0 0 0 5px rgba(23,107,91,.12); }
 @keyframes audioPulse { to { opacity: .35; transform: scale(.86); } }
 
 /* Whole-card transition, matching a physical mobile flashcard deck. */
@@ -272,7 +278,7 @@ dialog input { height: 44px; padding: 0 12px; border: 1px solid var(--line); bor
 .deck-back-content { padding: 16px 10px 8px; flex-direction: column; align-items: flex-start; justify-content: flex-start; overflow: auto; text-align: left; }
 .deck-meaning { margin: 8px 0 18px; color: var(--brand-dark); font-size: 26px; line-height: 1.2; }
 .deck-examples { width: 100%; display: grid; gap: 10px; }
-.deck-examples > span { display: grid; grid-template-columns: 24px 1fr; gap: 6px; font-size: 13px; line-height: 1.45; }
+.deck-examples > span { display: grid; grid-template-columns: 24px minmax(0,1fr) 30px; align-items: start; gap: 6px; font-size: 13px; line-height: 1.45; }
 .deck-examples i { width: 21px; height: 21px; display: grid; place-items: center; border-radius: 50%; color: #9f422a; background: var(--accent-soft); font-size: 11px; font-style: normal; font-weight: 800; }
 .deck-examples small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
 .deck-back-hint { align-self: center; margin-top: auto; padding-top: 16px; color: #5e6964; font-size: 11px; font-weight: 800; }
@@ -392,8 +398,9 @@ dialog input { height: 44px; padding: 0 12px; border: 1px solid var(--line); bor
   .meaning-view > .ipa { font-size: 12px; }
   .meaning-view > strong { margin: 10px 0; font-size: 18px; }
   .example-list { gap: 6px; }
-  .example-list > span { grid-template-columns: 22px 1fr; font-size: 12px; line-height: 1.35; }
+  .example-list > span { grid-template-columns: 22px minmax(0,1fr) 30px; font-size: 12px; line-height: 1.35; }
   .example-list i { width: 19px; height: 19px; font-size: 10px; }
+  .example-copy small { font-size: 10px; }
   .first-translation { font-size: 11px; }
   .meaning-view .flip-label { margin-top: 10px; padding-bottom: 2px; }
   .card-actions { min-height: 64px; padding: 8px; gap: 8px; }
@@ -461,8 +468,9 @@ dialog input { height: 44px; padding: 0 12px; border: 1px solid var(--line); bor
   body[data-active-view="cards"] .deck-back-content { padding: 5px 2px 2px; }
   body[data-active-view="cards"] .deck-meaning { margin: 5px 0 10px; font-size: 21px; }
   body[data-active-view="cards"] .deck-examples { gap: 6px; }
-  body[data-active-view="cards"] .deck-examples > span { grid-template-columns: 21px 1fr; gap: 4px; font-size: 11px; line-height: 1.35; }
+  body[data-active-view="cards"] .deck-examples > span { grid-template-columns: 21px minmax(0,1fr) 28px; gap: 4px; font-size: 11px; line-height: 1.35; }
   body[data-active-view="cards"] .deck-examples i { width: 19px; height: 19px; font-size: 9px; }
+  body[data-active-view="cards"] .example-voice { width: 27px; height: 27px; }
   body[data-active-view="cards"] .deck-back-hint { padding-top: 8px; font-size: 9px; }
   body[data-active-view="cards"] .deck-navigation { height: 40px; margin: 0; gap: 7px; }
   body[data-active-view="cards"] .deck-navigation button { min-width: 78px; min-height: 38px; }
@@ -518,8 +526,10 @@ dialog input { height: 44px; padding: 0 12px; border: 1px solid var(--line); bor
   .meaning-view > .ipa { margin-top: 1px; font-size: 11px; }
   .meaning-view > strong { margin: 4px 0 5px; font-size: 16px; }
   .example-list { gap: 3px; }
-  .example-list > span { grid-template-columns: 20px 1fr; gap: 3px; font-size: 11px; line-height: 1.25; }
+  .example-list > span { grid-template-columns: 20px minmax(0,1fr) 27px; gap: 3px; font-size: 11px; line-height: 1.25; }
   .example-list i { width: 18px; height: 18px; font-size: 9px; }
+  .example-copy small { margin-top: 1px; font-size: 9px; }
+  .example-voice { width: 26px; height: 26px; }
   .first-translation { margin-top: 1px; font-size: 10px; }
   .meaning-view .flip-label { display: none; }
   body[data-active-view="cards"] #view-cards.active { grid-template-rows: 34px 34px 34px minmax(0,1fr) 36px; gap: 4px; }

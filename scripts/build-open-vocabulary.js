@@ -124,6 +124,36 @@ const editorialExamples = {
   return: ['We return home on Sunday.', 'Please return the room key.', 'I would like to return next year.']
 };
 
+const editorialTranslations = {
+  hungry: ['Tôi đói sau quãng đường đi bộ dài.', 'Bây giờ bạn có đói không?', 'Chúng tôi thấy đói khi đang chờ tàu.'],
+  delicious: ['Món súp này rất ngon.', 'Bữa ăn có mùi rất ngon.', 'Mọi thứ đều tươi và ngon.'],
+  restaurant: ['Chúng tôi đã ăn tại một nhà hàng nhỏ.', 'Nhà hàng ở gần khách sạn.', 'Bạn có thể giới thiệu một nhà hàng ngon không?'],
+  menu: ['Cho tôi xem thực đơn được không?', 'Thực đơn có một số món chay.', 'Món này không có trong thực đơn.'],
+  order: ['Tôi đã sẵn sàng gọi món.', 'Món chúng tôi gọi sẽ sớm được chuẩn bị xong.', 'Tôi có thể thay đổi món đã gọi không?'],
+  bill: ['Cho chúng tôi xin hóa đơn được không?', 'Hóa đơn đã bao gồm phí phục vụ.', 'Tôi đã thanh toán hóa đơn bằng thẻ.'],
+  reservation: ['Tôi có đặt bàn cho hai người.', 'Chúng tôi đã đặt chỗ trực tuyến.', 'Bạn có thể xác nhận việc đặt chỗ của tôi không?'],
+  left: ['Rẽ trái ở con phố tiếp theo.', 'Ngân hàng ở bên trái của bạn.', 'Đi về bên trái tại chỗ đường rẽ.'],
+  right: ['Rẽ phải ở đèn giao thông.', 'Khách sạn ở bên phải của bạn.', 'Đi về bên phải tại chỗ đường rẽ.'],
+  straight: ['Đi thẳng hai dãy nhà.', 'Tiếp tục đi thẳng qua ngân hàng.', 'Nhà ga ở ngay phía trước.'],
+  north: ['Khách sạn nằm về phía bắc nhà ga.', 'Chúng tôi đang đi về phía bắc.', 'Con đường nào đi về phía bắc?'],
+  south: ['Bãi biển nằm về phía nam thành phố.', 'Chúng tôi đang đi về phía nam.', 'Con đường nào đi về phía nam?'],
+  east: ['Sân bay nằm về phía đông của nơi này.', 'Chúng tôi đang đi về phía đông.', 'Con đường nào đi về phía đông?'],
+  west: ['Ngôi làng nằm về phía tây con sông.', 'Chúng tôi đang đi về phía tây.', 'Con đường nào đi về phía tây?'],
+  near: ['Khách sạn ở gần sân bay.', 'Nhà ga có gần đây không?', 'Ngân hàng ở gần khu chợ.'],
+  far: ['Bảo tàng ở xa nơi này.', 'Sân bay có xa không?', 'Khách sạn không xa bãi biển.'],
+  corner: ['Rẽ phải ở góc đường.', 'Quán cà phê nằm ở góc đường.', 'Tôi sẽ đợi bạn ở góc đường.'],
+  travel: ['Tôi thích đi du lịch bằng tàu hỏa.', 'Chúng tôi dự định đi du lịch vào mùa hè này.', 'Du lịch giúp chúng ta tìm hiểu về những nền văn hóa mới.'],
+  visit: ['Tôi muốn ghé thăm bảo tàng.', 'Hôm qua chúng tôi đã ghé thăm khu phố cổ.', 'Ngày mai chúng ta có thể ghé thăm khu chợ không?'],
+  explore: ['Hãy cùng đi bộ khám phá thành phố.', 'Chúng tôi đã khám phá một ngôi làng yên tĩnh.', 'Tôi muốn khám phá hòn đảo.'],
+  drive: ['Tôi có thể lái xe đến sân bay.', 'Chúng tôi đã lái xe dọc bờ biển.', 'Bạn có thấy thoải mái khi lái xe ở đây không?'],
+  ride: ['Tôi đi xe đạp đến nơi làm việc.', 'Chúng tôi đã đi xe buýt vào thị trấn.', 'Bạn có muốn đi cùng chúng tôi không?'],
+  fly: ['Ngày mai chúng tôi bay đến Singapore.', 'Máy bay đang bay qua thành phố.', 'Tôi chưa bao giờ bay một mình.'],
+  walk: ['Chúng ta có thể đi bộ đến nhà ga.', 'Tôi đã đi bộ quanh khu phố cổ.', 'Hãy cùng đi bộ dọc bãi biển.'],
+  stay: ['Chúng tôi sẽ ở tại khách sạn này.', 'Bạn sẽ ở lại bao lâu?', 'Tôi đã ở gần sân bay.'],
+  pack: ['Tôi cần đóng gói hành lý vào va-li.', 'Hãy mang ít đồ cho chuyến đi ngắn.', 'Bạn đã cất hộ chiếu vào hành lý chưa?'],
+  return: ['Chúng tôi trở về nhà vào Chủ nhật.', 'Vui lòng trả lại chìa khóa phòng.', 'Tôi muốn quay lại vào năm sau.']
+};
+
 function cleanText(value) {
   return String(value || '')
     .replace(/\[[^\]]*\]/g, '')
@@ -202,6 +232,20 @@ function fallbackExamples(word, themeId, dayIndex) {
   return [`Where is the ${word}?`, `I can see the ${word} from here.`, `Can you show me the ${word} on the map?`];
 }
 
+function fallbackTranslations(word, meaning, themeId, dayIndex) {
+  if (editorialTranslations[word]) return editorialTranslations[word];
+  const capitalized = `${meaning.charAt(0).toUpperCase()}${meaning.slice(1)}`;
+  if (themeId === 'open-food') {
+    if (dayIndex <= 1) return [`Hôm nay tôi đã mua một ít ${meaning}.`, `${capitalized} trông rất tươi.`, `Bạn có muốn dùng một ít ${meaning} không?`];
+    if (dayIndex === 3) return [`Tôi muốn gọi ${meaning}, làm ơn.`, `${capitalized} này có vị ngon.`, `Cho tôi thêm ${meaning} được không?`];
+    if (dayIndex === 4) return [`Món ăn có vị ${meaning}.`, `Nó có vị hơi ${meaning}.`, `Bạn có thích đồ ăn ${meaning} không?`];
+    return [`Chúng tôi đã nói về ${meaning} trong bữa tối.`, `Tôi cần ${meaning}, làm ơn.`, `Tôi có thể tìm thấy ${meaning} ở đâu?`];
+  }
+  if (dayIndex === 4) return [`Rẽ ${meaning} ở con phố tiếp theo.`, `Từ đây đến đó có ${meaning} không?`, `Địa điểm đó ở ${meaning} nhà ga.`];
+  if (dayIndex === 6) return [`Tôi muốn ${meaning} vào mùa hè này.`, `Chúng tôi dự định ${meaning} vào ngày mai.`, `Từ đây rất dễ ${meaning}.`];
+  return [`${capitalized} ở đâu?`, `Từ đây tôi có thể nhìn thấy ${meaning}.`, `Bạn có thể chỉ cho tôi ${meaning} trên bản đồ không?`];
+}
+
 async function main() {
   if (!fs.existsSync(wiktionaryGzip)) throw new Error(`Không tìm thấy nguồn dữ liệu: ${wiktionaryGzip}`);
   if (!fs.existsSync(wordnetZip)) console.warn('Không có gói WordNet: dùng câu mẫu biên tập sẵn và dữ liệu Wiktionary.');
@@ -217,20 +261,23 @@ async function main() {
       words: day.words.map((word, wordIndex) => {
         const vi = { ...(viEntries.get(word) || {}), ...(editorialFallbacks[word] || {}) };
         if (!vi) missing.push(word);
-        const examples = [...(wordnetExamples.get(word) || []), ...fallbackExamples(word, theme.id, dayIndex)].slice(0, 3);
+        const examples = fallbackExamples(word, theme.id, dayIndex);
+        const exampleTranslations = fallbackTranslations(word, vi?.meaning || word, theme.id, dayIndex);
         return {
           id: `open:${theme.id}:${dayIndex}:${wordIndex}`,
           word,
           ipa: vi?.ipa || '',
           meaning: vi?.meaning || word,
           examples,
+          exampleTranslations,
           translation: `Từ “${word}” có nghĩa là “${vi?.meaning || word}”.`,
           audioPath: `/audio/open/${theme.id}-${dayIndex + 1}-${wordIndex + 1}.mp3`,
+          exampleAudioPaths: [1, 2, 3].map((number) => `/audio/open/${theme.id}-${dayIndex + 1}-${wordIndex + 1}-example-${number}.mp3`),
           category: theme.category,
           topic: theme.title,
           subtopic: day.title,
           introducedDay: dayIndex,
-          source: wordnetExamples.has(word) ? 'Open English WordNet + Wiktionary/Kaikki' : 'Wiktionary/Kaikki'
+          source: 'Wiktionary/Kaikki + câu mẫu biên tập'
         };
       })
     }))

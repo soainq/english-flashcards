@@ -1,17 +1,20 @@
 (function () {
   const objectExamples = (word, meaning) => ({
     examples: [`I can see the ${word}.`, `I use the ${word} every day.`, `Please put the ${word} back in its place.`],
+    exampleTranslations: [`Tôi có thể thấy ${meaning}.`, `Tôi sử dụng ${meaning} mỗi ngày.`, `Vui lòng đặt ${meaning} lại đúng chỗ.`],
     translation: `Tôi có thể thấy ${meaning}.`
   });
   const animalExamples = (word, meaning) => {
     const article = /^[aeiou]/i.test(word) ? 'an' : 'a';
     return {
       examples: [`The ${word} is moving quietly.`, `I saw ${article} ${word} in a picture.`, `Can you describe the ${word}?`],
+      exampleTranslations: [`${meaning.charAt(0).toUpperCase()}${meaning.slice(1)} đang di chuyển nhẹ nhàng.`, `Tôi đã thấy ${meaning} trong một bức ảnh.`, `Bạn có thể mô tả ${meaning} không?`],
       translation: `${meaning.charAt(0).toUpperCase()}${meaning.slice(1)} đang di chuyển nhẹ nhàng.`
     };
   };
   const activityExamples = (word, meaning) => ({
     examples: [`I ${word} every day.`, `I usually ${word} as part of my routine.`, `I try to ${word} without rushing.`],
+    exampleTranslations: [`Tôi ${meaning} mỗi ngày.`, `Tôi thường ${meaning} như một phần trong thói quen hằng ngày.`, `Tôi cố gắng ${meaning} mà không vội vàng.`],
     translation: `Tôi ${meaning} mỗi ngày.`
   });
 
@@ -23,6 +26,7 @@
       ipa,
       meaning,
       audioPath: `/audio/themes/${topicId}-${dayIndex + 1}-${wordIndex + 1}.mp3`,
+      exampleAudioPaths: [1, 2, 3].map((number) => `/audio/themes/${topicId}-${dayIndex + 1}-${wordIndex + 1}-example-${number}.mp3`),
       ...(type === 'object' ? objectExamples(word, meaning) : type === 'animal' ? animalExamples(word, meaning) : activityExamples(word, meaning))
     }))
   }));
