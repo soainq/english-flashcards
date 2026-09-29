@@ -144,7 +144,7 @@
         return;
       }
       if (!response.ok) throw new Error('SYNC_FAILED');
-      const result = await response.json();
+      const result = await window.SyncAPI.readJSON(response);
       if (result.progress) {
         state = mergeProgress(state, result.progress);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -476,7 +476,7 @@
           pin: $('#pinInput').value
         })
       });
-      const result = await response.json();
+      const result = await window.SyncAPI.readJSON(response);
       if (!response.ok) throw new Error(result.error || 'Không thể kết nối.');
       profile = { profileId: result.profileId, displayName: result.displayName };
       localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
@@ -547,7 +547,7 @@
         if (response.status === 401) setSyncStatus('Cần đăng nhập lại');
         return;
       }
-      const result = await response.json();
+      const result = await window.SyncAPI.readJSON(response);
       if (result.progress) {
         state = mergeProgress(state, result.progress);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
