@@ -52,9 +52,8 @@ Thiết lập một lần:
 3. Trong **Authentication → Settings → Authorized domains**, thêm `soainq.github.io`. Nếu kiểm thử cục bộ, thêm `localhost`.
 4. Vào **Realtime Database → Create database**. Chọn khu vực gần bạn, chẳng hạn Singapore. Không chọn chế độ công khai.
 5. Mở tab **Rules**, dán toàn bộ nội dung [database.rules.json](./database.rules.json) và bấm Publish. Rule chỉ cho tài khoản đã đăng nhập đọc/ghi đường dẫn mang đúng `uid` của mình.
-6. Vào **Project settings → Your apps → Web app**, tạo một web app và sao chép object `firebaseConfig`.
-7. Mở [public/firebase-config.js](./public/firebase-config.js), thay `null` bằng object vừa sao chép. Đây là định danh công khai của web app, không phải mật khẩu hay service-account key; quyền truy cập vẫn do Authentication và Database Rules kiểm soát.
-8. Commit và push lên `main`. GitHub Actions sẽ cập nhật Pages. Trên mỗi thiết bị, mở **Trên máy → Đăng nhập Google** và chọn cùng một tài khoản.
+6. Vào **Project settings → Your apps → Web app** và kiểm tra web app đang dùng project `learnenglish-4fb25`. Cấu hình công khai của web app này đã có trong [public/firebase-config.js](./public/firebase-config.js); quyền truy cập vẫn do Authentication và Database Rules kiểm soát. Không đưa service-account key vào mã nguồn.
+7. Commit và push lên `main`. GitHub Actions sẽ cập nhật Pages. Trên mỗi thiết bị, mở **Trên máy → Đăng nhập Google** và chọn cùng một tài khoản.
 
 Mỗi thay đổi được ghi vào `localStorage` trước, nên đóng trình duyệt hay mất mạng không làm mất buổi học. Khi có mạng, ứng dụng dùng transaction để đọc bản Firebase mới nhất, hợp nhất từng ngày, từng thẻ, trạng thái bài test và lịch sử câu mẫu, rồi ghi kết quả chung. Mở lại tab, đưa tab lên trước hoặc kết nối lại mạng đều kích hoạt đồng bộ. Không xóa dữ liệu trình duyệt trước lần đăng nhập Firebase đầu tiên; sau lần đầu, bản cục bộ hiện tại sẽ được đẩy lên và hợp nhất.
 

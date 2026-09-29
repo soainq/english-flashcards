@@ -16,6 +16,10 @@ const { server } = require('../server');
     await page.clock.install({ time: new Date('2026-09-29T12:00:00+07:00') });
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
+    await page.route('**/firebase-config.js*', (route) => route.fulfill({
+      contentType: 'application/javascript',
+      body: 'window.VOCAB_FIREBASE_CONFIG = null;'
+    }));
     await page.route('https://api.tatoeba.org/**', async (route) => {
       const word = new URL(route.request().url()).searchParams.get('q').replaceAll('"', '');
       await route.fulfill({ json: { data: Array.from({ length: 18 }, (_, i) => ({ id: i + 1, lang: 'eng', text: `We talked about the ${word} near house number ${i + 1}.`, owner: 'fixture', license: 'CC BY 2.0 FR', translations: [{ id: i + 101, lang: 'vie', text: 'Chúng tôi thảo luận về chủ đề này trên đường đi tới ngôi nhà ở cuối phố.', owner: 'translator', license: 'CC BY 2.0 FR' }] })), paging: { next: null } } });
@@ -121,6 +125,10 @@ const { server } = require('../server');
     // Simulate GitHub Pages at its real subpath, serving our local assets only.
     const staticPage = await context.newPage();
     let staticApiCalls = 0;
+    await staticPage.route('**/firebase-config.js*', (route) => route.fulfill({
+      contentType: 'application/javascript',
+      body: 'window.VOCAB_FIREBASE_CONFIG = null;'
+    }));
     await staticPage.route('https://soainq.github.io/**', async (route) => {
       const url = new URL(route.request().url());
       if (url.pathname.startsWith('/api/')) staticApiCalls++;
