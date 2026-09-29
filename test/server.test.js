@@ -4,6 +4,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 
+process.env.SYNC_ALLOWED_ORIGINS = 'https://soainq.github.io';
 process.env.DATA_DIR = path.join(os.tmpdir(), `fluent-test-${process.pid}`);
 const { server, normalizeProfileId, mergeProgress, mergeSimpleProgress } = require('../server');
 
@@ -124,6 +125,17 @@ test('service worker caches audio on demand instead of preloading the full libra
   const worker = await fs.readFile(path.join(__dirname, '..', 'public', 'sw.js'), 'utf8');
   assert.doesNotMatch(worker, /AUDIO_ASSETS|THEME_AUDIO_ASSETS|OPEN_AUDIO_ASSETS/);
   assert.match(worker, /request\.destination === 'audio'/);
+  assert.match(worker, /firebase-sync\.js/);
+  assert.match(worker, /firebase-config\.js/);
+});
+
+test('Firebase database rules isolate progress by authenticated uid', async () => {
+  const rules = JSON.parse(await fs.readFile(path.join(__dirname, '..', 'database.rules.json'), 'utf8'));
+  assert.equal(rules.rules['.read'], false);
+  assert.equal(rules.rules['.write'], false);
+  assert.match(rules.rules.users.$uid.progress['.read'], /auth\.uid === \$uid/);
+  assert.match(rules.rules.users.$uid.progress['.write'], /auth\.uid === \$uid/);
+  assert.match(rules.rules.users.$uid.progress['.validate'], /5000000/);
 });
 
 test('creates a profile, saves progress, and restores it', async (t) => {
@@ -172,4 +184,30 @@ test('creates a profile, saves progress, and restores it', async (t) => {
     body: JSON.stringify({ displayName: 'An', profileId: 'an-uiux', pin: '9999' })
   });
   assert.equal(wrongPin.status, 401);
+
+  const origin = 'https://soainq.github.io';
+  const preflight = await fetch(`${base}/api/simple-progress`, { method: 'OPTIONS', headers: { Origin: origin } });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get('access-control-allow-origin'), origin);
+  const denied = await fetch(`${base}/api/health`, { headers: { Origin: 'https://untrusted.example' } });
+  assert.equal(denied.status, 403);
+  const health = await fetch(`${base}/api/health`, { headers: { Origin: origin } });
+  assert.equal((await health.json()).service, 'vocab-sync');
+  const tokenHeaders = { Origin: origin, Authorization: `Bearer ${payload.token}`, 'Content-Type': 'application/json' };
+  const crossOrigin = await fetch(`${base}/api/simple-progress`, { headers: tokenHeaders });
+  assert.equal(crossOrigin.status, 200);
+  assert.equal(crossOrigin.headers.get('access-control-allow-origin'), origin);
+  const concurrent = await Promise.all(['a', 'b'].map((id) => fetch(`${base}/api/simple-progress`, {
+    method: 'PUT', headers: tokenHeaders, body: JSON.stringify({ progress: { cards: { [id]: { learned: true } }, exampleHistory: [id] } })
+  })));
+  assert.ok(concurrent.every((response) => response.ok));
+  const merged = await fetch(`${base}/api/simple-progress`, { headers: tokenHeaders }).then((response) => response.json());
+  assert.deepEqual(Object.keys(merged.progress.cards).sort(), ['a', 'b']);
+  assert.deepEqual(merged.progress.exampleHistory.sort(), ['a', 'b']);
+  const missing = await fetch(`${base}/missing.js`);
+  assert.equal(missing.status, 404);
+  assert.match(missing.headers.get('content-type'), /json/);
+  await fetch(`${base}/api/logout`, { method: 'POST', headers: tokenHeaders });
+  const expired = await fetch(`${base}/api/simple-progress`, { headers: tokenHeaders });
+  assert.equal(expired.status, 401);
 });

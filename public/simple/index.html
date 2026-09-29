@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f7f8fa">
   <meta name="description" content="Học 10 từ tiếng Anh theo một chủ đề mỗi ngày và ôn lũy tiến trong 7 ngày.">
   <link rel="icon" href="../icon-192.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=9">
+  <link rel="stylesheet" href="./styles.css?v=10">
   <title>Vocab — 10 từ mỗi ngày</title>
 </head>
 <body>
@@ -40,7 +40,7 @@
             </div>
             <button type="button" class="source-note" data-view="week">
               <span>Kho từ mở</span>
-              <b>Wiktionary + WordNet</b>
+              <b>Từ vựng & câu mẫu thực tế</b>
               <small>Xem lịch học 7 ngày →</small>
             </button>
           </aside>
@@ -74,6 +74,7 @@
             <button type="button" class="active" data-status-filter="all" aria-pressed="true">Tất cả</button>
             <button type="button" data-status-filter="due" aria-pressed="false">Cần ôn</button>
           </div>
+          <button type="button" class="primary-button library-test" id="startLibraryTest">Kiểm tra từ vựng</button>
         </div>
         <div class="cards-toolbar">
           <div class="filter-group" id="cardFilters" role="group" aria-label="Lọc theo ngày"><button type="button" class="active" data-filter="all" aria-pressed="true">Tất cả</button></div>
@@ -97,6 +98,7 @@
         <details class="source-details">
           <summary>Nguồn dữ liệu từ vựng</summary>
           <p>Kho hiện dùng bản trích Wiktionary/Kaikki (CC BY-SA/GFDL); bộ nhập dữ liệu hỗ trợ bổ sung Open English WordNet (CC BY 4.0) cho định nghĩa và ví dụ. Nội dung đã biên tập được lưu trong ứng dụng nên không phụ thuộc giới hạn API.</p>
+          <p>Câu mẫu mới được chọn ngẫu nhiên từ Tatoeba, ưu tiên có bản dịch Việt. Mỗi câu ghi rõ tác giả, nguồn và giấy phép. Khi không có thêm câu mới, ứng dụng thông báo thay vì lặp lại câu đã xem.</p>
         </details>
       </section>
     </main>
@@ -112,15 +114,39 @@
     <button type="button" class="dialog-close" id="closeProfile" aria-label="Đóng">×</button>
     <p class="eyebrow">KHÔNG MẤT TIẾN ĐỘ</p>
     <h2>Đồng bộ thiết bị</h2>
-    <p>Dùng cùng mã hồ sơ và PIN trên điện thoại, máy tính bảng hoặc máy tính.</p>
-    <form id="profileForm">
-      <label>Tên hiển thị<input id="displayNameInput" type="text" maxlength="40" placeholder="Ví dụ: An"></label>
-      <label>Mã hồ sơ<input id="profileIdInput" type="text" maxlength="40" autocapitalize="none" autocomplete="username" placeholder="Ví dụ: an-uiux"></label>
-      <label>PIN bí mật<input id="pinInput" type="password" minlength="4" maxlength="64" autocomplete="current-password" placeholder="Tối thiểu 4 ký tự"></label>
-      <p class="form-error" id="profileError"></p>
-      <button class="primary-button" type="submit">Kết nối và đồng bộ</button>
-    </form>
-    <button type="button" class="logout-button hidden" id="logoutButton">Đăng xuất</button>
+    <p>Đăng nhập cùng một tài khoản Google trên mọi thiết bị. Lịch sử trên từng máy sẽ được hợp nhất, không ghi đè.</p>
+    <section class="google-sync" aria-labelledby="googleSyncTitle">
+      <span class="google-mark" aria-hidden="true">G</span>
+      <div><h3 id="googleSyncTitle">Đồng bộ bằng Google</h3><p id="cloudAccount">Đăng nhập một lần trên mỗi thiết bị.</p></div>
+      <button type="button" class="primary-button" id="googleSyncButton">Đăng nhập Google</button>
+      <button type="button" class="logout-button hidden" id="cloudLogoutButton">Đăng xuất Google</button>
+      <p class="cloud-message" id="cloudMessage" role="status"></p>
+    </section>
+    <p id="syncAvailability" class="sync-note" role="status"></p>
+    <details class="server-sync">
+      <summary>Tùy chọn máy chủ Vocab riêng</summary>
+      <p>Dùng mã hồ sơ và PIN nếu bạn đã tự triển khai máy chủ Node.js của dự án.</p>
+      <form id="profileForm">
+        <label>Địa chỉ máy chủ đồng bộ<input id="syncServerInput" type="url" placeholder="https://vocab.example.com" autocomplete="url"><small>Để trống nếu trang này chạy trên máy chủ Vocab.</small></label>
+        <label>Tên hiển thị<input id="displayNameInput" type="text" maxlength="40" placeholder="Ví dụ: An"></label>
+        <label>Mã hồ sơ<input id="profileIdInput" type="text" required minlength="4" maxlength="40" autocapitalize="none" autocomplete="username" placeholder="Ví dụ: an-uiux"></label>
+        <label>PIN bí mật<input id="pinInput" type="password" required minlength="4" maxlength="64" autocomplete="current-password" placeholder="Tối thiểu 4 ký tự"></label>
+        <p class="form-error" id="profileError" role="alert"></p>
+        <button class="primary-button" type="submit">Kết nối máy chủ riêng</button>
+      </form>
+      <button type="button" class="logout-button hidden" id="logoutButton">Ngắt máy chủ riêng</button>
+    </details>
+    <div class="backup-controls"><h3>Chuyển tiến độ bằng tệp</h3><p>Tải bản sao lưu rồi nhập trên thiết bị khác. Hai tiến độ sẽ được hợp nhất, kể cả bài test và lịch sử câu mẫu.</p>
+      <button type="button" class="secondary-button" id="exportProgress">Tải bản sao lưu</button>
+      <label class="backup-import">Nhập bản sao lưu<input type="file" id="importProgress" accept="application/json,.json"></label>
+    </div>
+  </dialog>
+
+  <dialog id="quizDialog" aria-labelledby="quizTitle">
+    <button type="button" class="dialog-close" id="closeQuiz" aria-label="Tạm dừng bài kiểm tra">×</button>
+    <p class="eyebrow" id="quizProgress">KIỂM TRA GHI NHỚ</p>
+    <h2 id="quizTitle">Nhớ từ qua nghĩa</h2>
+    <div id="quizBody"></div>
   </dialog>
 
     <div class="toast" id="toast" aria-live="polite"><span id="toastText"></span><button id="toastAction" class="hidden" type="button">Hành động</button></div>
@@ -128,6 +154,11 @@
   <script defer src="./curriculum.js?v=2"></script>
   <script defer src="./content.js?v=2"></script>
   <script defer src="./open-vocabulary.js?v=3"></script>
-  <script defer src="./app.js?v=11"></script>
+  <script defer src="../api-client.js?v=1"></script>
+  <script defer src="../firebase-config.js?v=1"></script>
+  <script defer src="../firebase-sync.js?v=1"></script>
+  <script defer src="./learning.js?v=1"></script>
+  <script defer src="./examples.js?v=1"></script>
+  <script defer src="./app.js?v=13"></script>
 </body>
 </html>

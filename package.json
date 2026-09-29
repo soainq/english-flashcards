@@ -5,9 +5,10 @@
   "description": "Lộ trình học tiếng Anh từ mất gốc đến IELTS 6.5 cho UI/UX Designer",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check public/content.js && node --check public/app.js && node --check public/simple/content.js && node --check public/simple/open-vocabulary.js && node --check public/simple/app.js && node --check public/sw.js && node --check scripts/generate-audio.js && node --check scripts/build-open-vocabulary.js && node --test",
+    "check": "node --check server.js && node --check public/content.js && node --check public/app.js && node --check public/simple/content.js && node --check public/simple/open-vocabulary.js && node --check public/api-client.js && node --check public/firebase-config.js && node --check public/firebase-sync.js && node --check public/simple/learning.js && node --check public/simple/examples.js && node --check public/simple/app.js && node --check public/sw.js && node --check scripts/generate-audio.js && node --check scripts/build-open-vocabulary.js && node --test",
     "audio": "node scripts/generate-audio.js",
-    "vocabulary": "node scripts/build-open-vocabulary.js"
+    "vocabulary": "node scripts/build-open-vocabulary.js",
+    "test:browser": "node scripts/check-browser.js"
   },
   "engines": {
     "node": ">=18"

@@ -10,6 +10,8 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const STORE_FILE = path.join(DATA_DIR, 'store.json');
 const sessions = new Map();
 const attempts = new Map();
+const allowedOrigins = new Set((process.env.SYNC_ALLOWED_ORIGINS || '').split(',').map((value) => value.trim()).filter(Boolean));
+let mutationQueue = Promise.resolve();
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -51,7 +53,7 @@ async function bodyJson(req) {
   let body = '';
   for await (const chunk of req) {
     body += chunk;
-    if (body.length > 1_000_000) throw new Error('PAYLOAD_TOO_LARGE');
+    if (body.length > 6_000_000) throw new Error('PAYLOAD_TOO_LARGE');
   }
   try {
     return JSON.parse(body || '{}');
@@ -91,7 +93,7 @@ function cookieMap(req) {
 }
 
 function sessionProfile(req) {
-  const token = cookieMap(req).learn_session;
+  const token = requestToken(req);
   const session = sessions.get(token);
   if (!session || session.expiresAt < Date.now()) {
     if (token) sessions.delete(token);
@@ -99,6 +101,11 @@ function sessionProfile(req) {
   }
   session.expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
   return session.profileId;
+}
+
+function requestToken(req) {
+  const bearer = /^Bearer ([a-f0-9]{64})$/.exec(req.headers.authorization || '');
+  return bearer ? bearer[1] : cookieMap(req).learn_session;
 }
 
 function checkRateLimit(ip) {
@@ -111,7 +118,7 @@ function checkRateLimit(ip) {
 
 function validProgress(progress) {
   return progress && typeof progress === 'object' && !Array.isArray(progress) &&
-    JSON.stringify(progress).length <= 500_000;
+    JSON.stringify(progress).length <= 5_000_000;
 }
 
 function mergeProgress(base, incoming) {
@@ -162,6 +169,10 @@ function mergeSimpleDailyEntry(base = {}, incoming = {}) {
       again.delete(id);
     } else if (answer.result === 'again') {
       again.add(id);
+    } else if (answer.result === 'failed') {
+      learned.delete(id);
+      reviewed.delete(id);
+      again.add(id);
     }
   }
   const newer = newerSimpleRecord(base, incoming) || incoming;
@@ -189,10 +200,16 @@ function mergeSimpleProgress(base, incoming) {
   for (const [id, card] of Object.entries(incoming.cards || {})) {
     cards[id] = newerSimpleRecord(cards[id], card);
   }
-  return { ...base, ...incoming, version: Math.max(base.version || 1, incoming.version || 1), daily, cards };
+  const recalls = { ...(base.recalls || {}) };
+  for (const [id, recall] of Object.entries(incoming.recalls || {})) {
+    recalls[id] = newerSimpleRecord(recalls[id], recall);
+  }
+  const exampleHistory = Array.from(new Set([...(base.exampleHistory || []), ...(incoming.exampleHistory || [])]));
+  return { ...base, ...incoming, version: Math.max(base.version || 1, incoming.version || 1), daily, cards, recalls, exampleHistory };
 }
 
 async function handleApi(req, res, pathname) {
+  if (req.method === 'GET' && pathname === '/api/health') return json(res, 200, { service: 'vocab-sync', version: 1 });
   if (req.method === 'POST' && pathname === '/api/auth') {
     const ip = req.socket.remoteAddress || 'unknown';
     if (!checkRateLimit(ip)) return json(res, 429, { error: 'Thử lại sau 10 phút.' });
@@ -225,6 +242,7 @@ async function handleApi(req, res, pathname) {
     const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
     return json(res, 200, {
       profileId,
+      token,
       displayName: profile.displayName,
       createdAt: profile.createdAt,
       progress: profile.progress
@@ -232,7 +250,7 @@ async function handleApi(req, res, pathname) {
   }
 
   if (req.method === 'POST' && pathname === '/api/logout') {
-    const token = cookieMap(req).learn_session;
+    const token = requestToken(req);
     if (token) sessions.delete(token);
     return json(res, 200, { ok: true }, {
       'Set-Cookie': 'learn_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0'
@@ -308,14 +326,12 @@ async function serveStatic(req, res, pathname) {
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
       'Referrer-Policy': 'same-origin',
-      'Content-Security-Policy': "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; media-src 'self'; manifest-src 'self'"
+      'Content-Security-Policy': "default-src 'self'; style-src 'self'; script-src 'self' https://www.gstatic.com; img-src 'self' data: https://*.googleusercontent.com; connect-src 'self' https://api.tatoeba.org https://*.googleapis.com https://*.firebaseio.com https://*.firebasedatabase.app; frame-src https://*.firebaseapp.com; media-src 'self'; manifest-src 'self'"
     });
     res.end(data);
   } catch (error) {
     if (error.code === 'ENOENT') {
-      const fallback = await fs.readFile(path.join(PUBLIC_DIR, 'index.html'));
-      res.writeHead(200, { 'Content-Type': MIME['.html'], 'Cache-Control': 'no-cache' });
-      return res.end(fallback);
+      return json(res, 404, { error: 'Không tìm thấy tệp.' });
     }
     throw error;
   }
@@ -324,10 +340,28 @@ async function serveStatic(req, res, pathname) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    if (url.pathname.startsWith('/api/')) return await handleApi(req, res, url.pathname);
+    if (url.pathname.startsWith('/api/')) {
+      const origin = req.headers.origin;
+      const sameOrigin = origin === `http://${req.headers.host}` || origin === `https://${req.headers.host}`;
+      if (origin && !sameOrigin) {
+        if (!allowedOrigins.has(origin)) return json(res, 403, { error: 'Máy chủ chưa cho phép kết nối từ trang này.' });
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Vary', 'Origin');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      }
+      if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+      if (['POST', 'PUT'].includes(req.method)) {
+        // Serialize read/merge/write operations so simultaneous devices cannot overwrite each other.
+        const operation = mutationQueue.then(() => handleApi(req, res, url.pathname));
+        mutationQueue = operation.catch(() => {});
+        return await operation;
+      }
+      return await handleApi(req, res, url.pathname);
+    }
     return await serveStatic(req, res, decodeURIComponent(url.pathname));
   } catch (error) {
-    const status = error.message === 'PAYLOAD_TOO_LARGE' ? 413 : 500;
+    const status = error.message === 'PAYLOAD_TOO_LARGE' ? 413 : error.message === 'INVALID_JSON' ? 400 : 500;
     console.error(error);
     return json(res, status, { error: status === 413 ? 'Dữ liệu quá lớn.' : 'Máy chủ gặp lỗi.' });
   }

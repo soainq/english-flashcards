@@ -26,7 +26,7 @@
   const STORAGE_KEY = 'daily-deck-progress-v2';
   const PROFILE_KEY = 'fluent-uiux-profile-v1';
   const AUDIO_SPEED_KEY = 'vocab-audio-speed-v1';
-  const STATE_VERSION = 3;
+  const STATE_VERSION = 4;
   const NEW_WORDS_PER_DAY = 10;
   const WEEKLY_NEW_WORDS = 70;
   const TOPIC_PLAN_VERSION = 'weekly-queues-v4';
@@ -61,13 +61,24 @@
   const storedAudioSpeed = Number(localStorage.getItem(AUDIO_SPEED_KEY));
   let audioSpeed = AUDIO_SPEEDS.includes(storedAudioSpeed) ? storedAudioSpeed : 0.75;
   let toastActionCallback = null;
+  let quiz = null;
+  let syncInFlight = null;
+  let syncGeneration = 0;
+  let cloudUser = null;
+  let cloudState = 'idle';
+  const SYNC_SERVER_KEY = 'vocab-sync-server-v1';
+  const isPages = location.hostname.endsWith('.github.io');
+  const examples = window.ExampleBank.create({
+    storage: localStorage, items: allItems, seen: () => state.exampleHistory,
+    remember: (keys) => { state.exampleHistory = Array.from(new Set([...state.exampleHistory, ...keys])); persist(); }
+  });
 
   function parseJson(value, fallback) {
     try { return JSON.parse(value); } catch { return fallback; }
   }
 
   function freshState() {
-    return { version: STATE_VERSION, daily: {}, cards: {}, updatedAt: new Date().toISOString() };
+    return { version: STATE_VERSION, daily: {}, cards: {}, recalls: {}, exampleHistory: [], updatedAt: new Date().toISOString() };
   }
 
   function localDate(date = new Date()) {
@@ -118,6 +129,13 @@
     const next = freshState();
     if (!saved || typeof saved !== 'object') return next;
     next.updatedAt = saved.updatedAt || next.updatedAt;
+    next.exampleHistory = Array.isArray(saved.exampleHistory) ? Array.from(new Set(saved.exampleHistory.filter((value) => typeof value === 'string' && value.length <= 200))) : [];
+    Object.entries(saved.recalls || {}).forEach(([id, recall]) => {
+      if (allWords.has(id) && recall && typeof recall === 'object') next.recalls[id] = {
+        attempts: Math.max(0, Math.min(3, Number(recall.attempts) || 0)), needsStudy: Boolean(recall.needsStudy),
+        passedAt: recall.passedAt || null, updatedAt: recall.updatedAt || new Date(0).toISOString()
+      };
+    });
 
     Object.entries(saved.daily || {}).forEach(([date, rawEntry]) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !rawEntry) return;
@@ -201,6 +219,7 @@
     Object.entries(answers).forEach(([id, answer]) => {
       if (answer.result === 'known') { learned.add(id); again.delete(id); }
       if (answer.result === 'again') again.add(id);
+      if (answer.result === 'failed') { learned.delete(id); reviewed.delete(id); again.add(id); }
     });
     const newer = latestValue(base, incoming) || incoming;
     return {
@@ -224,7 +243,10 @@
     Object.entries(right.daily).forEach(([date, entry]) => { daily[date] = mergeDailyEntry(daily[date], entry); });
     const cards = { ...left.cards };
     Object.entries(right.cards).forEach(([id, card]) => { cards[id] = latestValue(cards[id], card); });
-    return { version: STATE_VERSION, daily, cards, updatedAt: new Date().toISOString() };
+    const recalls = { ...left.recalls };
+    Object.entries(right.recalls).forEach(([id, recall]) => { recalls[id] = latestValue(recalls[id], recall); });
+    return { version: STATE_VERSION, daily, cards, recalls,
+      exampleHistory: Array.from(new Set([...left.exampleHistory, ...right.exampleHistory])), updatedAt: new Date().toISOString() };
   }
 
   function learnedCount(entry) {
@@ -264,7 +286,8 @@
     state.version = STATE_VERSION;
     state.updatedAt = new Date().toISOString();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    if (sync && profile) scheduleSync();
+    if (sync && profile && (!isPages || profile.server)) scheduleSync();
+    if (sync) window.FirebaseSync?.save(state);
     renderNavigation();
   }
 
@@ -274,26 +297,84 @@
     syncTimer = setTimeout(syncProgress, 500);
   }
 
+  function syncClient(target = profile) {
+    return window.SyncAPI.create({ origin: target?.server || '', token: target?.token || '' });
+  }
+
   async function syncProgress() {
-    if (!profile || !navigator.onLine) return setSyncStatus('Trên máy', false);
-    try {
-      const response = await fetch('/api/simple-progress', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ progress: state })
-      });
-      if (response.status === 401) return setSyncStatus('Đăng nhập', false);
-      if (!response.ok) throw new Error('SYNC');
-      state = mergeState(state, (await response.json()).progress);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      setSyncStatus('Đã lưu', true);
-    } catch {
-      setSyncStatus('Trên máy', false);
-    }
+    if (syncInFlight) { await syncInFlight; return syncProgress(); }
+    if (!profile || !navigator.onLine || (isPages && !profile.server)) { setSyncStatus('Trên máy', false); return false; }
+    const generation = syncGeneration;
+    syncInFlight = (async () => {
+      try {
+        const result = await syncClient()('simple-progress', { method: 'PUT', body: JSON.stringify({ progress: state }) });
+        if (generation !== syncGeneration) return false;
+        if (!result.progress || typeof result.progress !== 'object') throw new Error('Không nhận được tiến độ từ máy chủ.');
+        state = mergeState(state, result.progress);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        setSyncStatus('Đã lưu', true);
+        return true;
+      } catch (error) {
+        if (generation === syncGeneration) setSyncStatus(error.status === 401 ? 'Đăng nhập' : 'Chưa đồng bộ', false);
+        return false;
+      } finally { syncInFlight = null; }
+    })();
+    return syncInFlight;
   }
 
   function setSyncStatus(label, synced) {
     $('#syncText').textContent = label;
     $('#profileButton').classList.toggle('synced', synced);
     $('#profileButton').setAttribute('aria-label', `${label} — hồ sơ và đồng bộ`);
+  }
+
+  function renderCloudControls() {
+    const configured = Boolean(window.FirebaseSync?.configured());
+    const button = $('#googleSyncButton');
+    button.disabled = !configured || cloudState === 'loading' || cloudState === 'saving';
+    button.textContent = cloudUser ? (cloudState === 'saving' ? 'Đang đồng bộ…' : 'Đồng bộ ngay') : 'Đăng nhập Google';
+    $('#cloudLogoutButton').classList.toggle('hidden', !cloudUser);
+    $('#cloudAccount').textContent = cloudUser
+      ? `${cloudUser.displayName}${cloudUser.email ? ` · ${cloudUser.email}` : ''}`
+      : configured ? 'Đăng nhập cùng tài khoản trên mọi thiết bị.' : 'Chưa có thông tin kết nối Firebase.';
+    $('#syncAvailability').textContent = configured
+      ? 'Tiến độ luôn được giữ trên thiết bị. Khi có mạng, lịch sử được hợp nhất với Firebase và các thiết bị khác.'
+      : 'Chưa cấu hình Firebase. Làm theo mục “Đồng bộ Firebase” trong README; trong lúc đó bạn vẫn có thể chuyển tiến độ bằng tệp sao lưu.';
+  }
+
+  function applyCloudProgress(remote) {
+    state = mergeState(state, remote);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    sessionDate = '';
+    renderNavigation();
+    if (!$('#quizDialog').open && !$('#profileDialog').open) {
+      const view = document.body.dataset.activeView || 'today';
+      if (view === 'today') renderToday();
+      if (view === 'cards') renderCards();
+      if (view === 'week') renderWeek();
+    }
+  }
+
+  function initializeCloudSync() {
+    renderCloudControls();
+    window.FirebaseSync?.initialize({
+      getLocal: () => state,
+      merge: mergeState,
+      onRemote: applyCloudProgress,
+      onUser: (user) => {
+        cloudUser = user;
+        renderCloudControls();
+      },
+      onStatus: ({ state: nextState, label, synced }) => {
+        cloudState = nextState;
+        const message = $('#cloudMessage');
+        message.textContent = label;
+        message.classList.toggle('error', nextState === 'error');
+        message.classList.toggle('success', nextState === 'synced');
+        if (cloudUser || ['loading', 'saving', 'synced'].includes(nextState)) setSyncStatus(label, synced);
+        renderCloudControls();
+      }
+    });
   }
 
   function showToast(text, options = {}) {
@@ -316,14 +397,39 @@
   }
 
   function exampleRows(item, listClass) {
-    const translations = item.exampleTranslations || [item.translation];
-    const audioPaths = item.exampleAudioPaths || [];
-    return `<span class="${listClass}" role="list">${item.examples.slice(0, 5).map((example, index) => {
-      const translation = translations[index] || '';
-      const audioPath = audioPaths[index] || '';
-      const audioId = `${item.id}:example:${index}`;
-      return `<span class="example-row" role="listitem"><i aria-hidden="true">${index + 1}</i><span class="example-copy"><span>${example}</span>${translation ? `<small>${translation}</small>` : ''}</span>${audioPath ? `<button type="button" class="example-voice" data-audio-id="${escapeAttribute(audioId)}" data-audio-path="${escapeAttribute(audioPath)}" data-audio-label="câu mẫu ${index + 1}" aria-pressed="false" aria-label="Nghe câu mẫu ${index + 1}">${voiceIcon}</button>` : ''}</span>`;
-    }).join('')}</span>`;
+    return `<span class="example-container" data-example-word="${escapeAttribute(item.id)}" data-list-class="${listClass}"><span class="example-status">Câu mẫu mới sẽ xuất hiện khi lật thẻ.</span></span>`;
+  }
+
+  async function activateExamples(root) {
+    for (const container of $$('[data-example-word]', root)) {
+      if (container.dataset.loaded) continue;
+      const item = allWords.get(container.dataset.exampleWord);
+      if (!item) continue;
+      container.dataset.loaded = 'loading';
+      container.innerHTML = '<span class="example-status" role="status">Đang tìm câu mẫu mới…</span>';
+      const result = await examples.get(item);
+      if (!container.isConnected || ($('#quizDialog').open && !container.closest('#quizDialog')) || container.closest('[aria-hidden="true"]') || container.closest('.view:not(.active)')) { delete container.dataset.loaded; continue; }
+      container.dataset.loaded = 'ready';
+      examples.commit(result.rows);
+      container.innerHTML = `<span class="${container.dataset.listClass}" role="list">${result.rows.map((row, index) => {
+        const translation = row.translation || row.translations?.[0]?.text || '';
+        const source = row.source ? `<a class="example-source" href="${escapeAttribute(row.source)}" target="_blank" rel="noopener noreferrer" title="${escapeAttribute(`${row.author} · ${row.license}`)}">Tatoeba · ${escapeAttribute(row.author)} · ${escapeAttribute(row.license)}</a>` : '';
+        const translationSource = row.translations?.[0] ? `<a class="example-source" href="${escapeAttribute(row.translations[0].source)}" target="_blank" rel="noopener noreferrer" title="${escapeAttribute(row.translations[0].license)}">Dịch: ${escapeAttribute(row.translations[0].author)} · ${escapeAttribute(row.translations[0].license)}</a>` : '';
+        return `<span class="example-row" role="listitem"><i aria-hidden="true">${index + 1}</i><span class="example-copy"><span>${escapeAttribute(row.text)}</span>${translation ? `<small>${escapeAttribute(translation)}</small>` : ''}${source}${translationSource}</span><button type="button" class="example-voice" data-sentence="${escapeAttribute(row.text)}" data-sentence-audio="${escapeAttribute(row.audio || '')}" aria-label="Nghe câu mẫu ${index + 1}">${voiceIcon}</button></span>`;
+      }).join('')}</span>${result.rows.length < 3 ? `<span class="example-status" role="status">${result.offline ? 'Chưa tải được đủ câu mới. Kiểm tra mạng rồi thử lại.' : 'Chưa có đủ câu mới cho từ này. Những câu đã xem sẽ không được lặp lại.'}</span>` : ''}<button type="button" class="new-examples" data-new-examples>${result.rows.length ? 'Đổi câu mẫu' : 'Tìm câu mới'}</button>`;
+    }
+  }
+
+  function playSentence(button) {
+    if (button.dataset.sentenceAudio) return playAudioClip('example', 'câu mẫu', button.dataset.sentenceAudio);
+    if (!('speechSynthesis' in window)) return showToast('Thiết bị chưa hỗ trợ đọc câu mẫu này.');
+    currentAudio?.pause();
+    speechSynthesis.cancel();
+    const speech = new SpeechSynthesisUtterance(button.dataset.sentence);
+    speech.lang = 'en-US';
+    speech.rate = audioSpeed;
+    speech.onerror = () => showToast('Không đọc được câu mẫu trên thiết bị này.');
+    speechSynthesis.speak(speech);
   }
 
   function setAudioVisualState(id, status) {
@@ -346,6 +452,7 @@
   }
 
   function playAudioClip(id, label, audioPath) {
+    window.speechSynthesis?.cancel();
     if (currentAudio) {
       currentAudio.pause();
       currentAudio.currentTime = 0;
@@ -481,6 +588,7 @@
 
     activeIndex = Math.max(0, Math.min(activeIndex, words.length - 1));
     const item = words[activeIndex];
+    examples.get(item);
     const modeTotal = studyMode === 'new' ? plan.newWords.length : sessionReviewTargets.size;
     const modeCompleted = Math.max(0, modeTotal - sessionQueues[studyMode].length);
     $('#deckLabel').textContent = studyMode === 'new' ? 'Từ mới hôm nay' : 'Cần ôn hôm nay';
@@ -522,10 +630,11 @@
       </div>
       <div class="card-actions">
         <button type="button" class="again-button" data-again>Chưa nhớ · bỏ qua tạm</button>
-        <button type="button" class="remember-button" data-learn>${studyMode === 'new' ? 'Đã nhớ · đưa vào ôn' : 'Đã ôn · hoàn tất từ'}</button>
+        <button type="button" class="remember-button" data-learn>${studyMode === 'new' ? 'Kiểm tra ghi nhớ' : 'Kiểm tra ôn tập'}</button>
       </div>
       </div>`;
     setAudioVisualState(currentAudioId, audioState);
+    if (revealed) activateExamples($('#learnCard'));
     if (options.focus === 'flip') requestAnimationFrame(() => $(`[data-study-face="${revealed ? 'back' : 'front'}"]`)?.focus());
   }
 
@@ -541,6 +650,7 @@
     back.setAttribute('aria-hidden', String(!revealed));
     front.toggleAttribute('inert', revealed);
     back.toggleAttribute('inert', !revealed);
+    if (revealed) activateExamples(back);
     requestAnimationFrame(() => (revealed ? back : front).focus());
   }
 
@@ -742,6 +852,102 @@
     renderToday({ focus: 'flip' });
   }
 
+  function startQuiz(ids, source) {
+    if (studyTransitioning) return;
+    const queue = window.ExampleBank.shuffle(ids.filter((id) => allWords.has(id)));
+    if (!queue.length) return;
+    quiz = { ids: queue, index: 0, source, date: localDate(), mode: studyMode };
+    currentAudio?.pause();
+    window.speechSynthesis?.cancel();
+    renderQuiz();
+    $('#quizDialog').showModal();
+  }
+
+  function renderQuiz() {
+    const item = allWords.get(quiz.ids[quiz.index]);
+    const recall = state.recalls[item.id] || {};
+    $('#quizProgress').textContent = `KIỂM TRA · ${quiz.index + 1} / ${quiz.ids.length}`;
+    $('#quizTitle').textContent = recall.needsStudy ? 'Học lại trước khi thử tiếp' : 'Nhớ từ qua nghĩa';
+    if (recall.needsStudy) {
+      $('#quizBody').innerHTML = `<div class="restudy-panel"><p>Bạn đã sai 3 lần. Hãy xem lại từ, nghe phát âm và đọc câu mẫu.</p><strong class="restudy-word">${escapeAttribute(item.word)}</strong><span>${escapeAttribute(item.ipa)}</span><h3>${escapeAttribute(item.meaning)}</h3><button type="button" class="secondary-button" data-audio-id="${escapeAttribute(item.id)}">Nghe phát âm</button>${exampleRows(item, 'deck-examples')}<button type="button" class="primary-button" id="retryQuiz">Đã học lại · kiểm tra lại</button></div>`;
+      activateExamples($('#quizBody'));
+      $('#retryQuiz').addEventListener('click', () => {
+        state.recalls[item.id] = window.Recall.restudied(recall);
+        persist();
+        renderQuiz();
+      });
+    } else {
+      const mask = window.Recall.mask(item.word);
+      const lengths = item.word.split(/\s+/).map((word) => Array.from(word).filter((letter) => /[\p{L}\p{N}]/u.test(letter)).length);
+      $('#quizBody').innerHTML = `<p class="quiz-meaning">${escapeAttribute(item.meaning)}</p><p class="answer-mask" aria-hidden="true">${escapeAttribute(mask)}</p><p id="answerHint">${lengths.length} từ · ${lengths.join(' – ')} ký tự. Mỗi gạch là một ký tự.</p><form id="answerForm"><label for="quizAnswer">Nhập từ hoặc cụm từ tiếng Anh</label><input id="quizAnswer" type="text" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="answerHint quizFeedback"><p id="quizFeedback" class="quiz-feedback" role="status">Còn ${3 - (recall.attempts || 0)} lần thử.</p><button type="submit" class="primary-button">Kiểm tra đáp án</button></form>`;
+      $('#answerForm').addEventListener('submit', submitQuiz);
+      requestAnimationFrame(() => $('#quizAnswer')?.focus());
+    }
+  }
+
+  function failRecall(item) {
+    const at = new Date().toISOString();
+    updateCardSchedule(item, 'again');
+    const entry = ensureToday();
+    if (entry.words.includes(item.id)) {
+      entry.learned = entry.learned.filter((id) => id !== item.id);
+      entry.reviewed = entry.reviewed.filter((id) => id !== item.id);
+      entry.again = Array.from(new Set([...entry.again, item.id]));
+      entry.difficult = Array.from(new Set([...entry.difficult, item.id]));
+      entry.answers[item.id] = { result: 'failed', at };
+      entry.updatedAt = at;
+    }
+    persist();
+  }
+
+  function submitQuiz(event) {
+    event.preventDefault();
+    const item = allWords.get(quiz.ids[quiz.index]);
+    const answer = $('#quizAnswer').value;
+    if (!window.Recall.normalizeAnswer(answer)) return;
+    const previous = state.recalls[item.id] || {};
+    const at = new Date().toISOString();
+    const next = window.Recall.submit(previous, answer, item.word, at);
+    state.recalls[item.id] = next;
+    const correct = window.Recall.normalizeAnswer(answer) === window.Recall.normalizeAnswer(item.word) && !previous.needsStudy;
+    if (!correct) {
+      if (next.needsStudy) { failRecall(item); renderQuiz(); }
+      else {
+        persist();
+        $('#quizFeedback').textContent = `Chưa đúng. Còn ${3 - next.attempts} lần thử.`;
+        $('#quizAnswer').setAttribute('aria-invalid', 'true');
+        $('#quizAnswer').select();
+      }
+      return;
+    }
+    persist();
+    // Only a correct typed answer can complete either a new or a review card.
+    if (quiz.source === 'study' && quiz.date === localDate() && currentStudyItem()?.id === item.id) {
+      answerCurrent('known');
+    } else {
+      updateCardSchedule(item, 'known');
+      const entry = ensureToday();
+      if (entry.words.includes(item.id)) {
+        entry.learned = Array.from(new Set([...entry.learned, item.id]));
+        entry.reviewed = Array.from(new Set([...entry.reviewed, item.id]));
+        entry.again = entry.again.filter((id) => id !== item.id);
+        entry.answers[item.id] = { result: 'known', at };
+        entry.updatedAt = at;
+      }
+      sessionDate = '';
+      persist();
+    }
+    quiz.index += 1;
+    if (quiz.index < quiz.ids.length) renderQuiz();
+    else {
+      const count = quiz.ids.length;
+      $('#quizTitle').textContent = 'Đã hoàn thành bài kiểm tra';
+      $('#quizBody').innerHTML = `<p class="quiz-meaning">Bạn đã gõ đúng ${count}/${count} từ.</p><p>Lịch ôn tập đã được cập nhật.</p><button type="button" class="primary-button" id="finishQuiz">Tiếp tục học</button>`;
+      $('#finishQuiz').addEventListener('click', () => $('#quizDialog').close());
+      requestAnimationFrame(() => $('#finishQuiz')?.focus());
+    }
+  }
+
   function learnedCardsForWeek(key) {
     const topicId = topicForDate(key).id;
     return Object.values(state.cards || {})
@@ -816,10 +1022,12 @@
       .sort((a, b) => (a.introducedDay - b.introducedDay) || a.word.localeCompare(b.word));
 
     currentDeckCards = filtered;
+    $('#startLibraryTest').disabled = !filtered.length;
+    $('#startLibraryTest').textContent = `Kiểm tra${filtered.length ? ` ${filtered.length} từ` : ' từ vựng'}`;
     deckIndex = Math.max(0, Math.min(deckIndex, Math.max(0, filtered.length - 1)));
     const visibleCards = filtered.slice(deckIndex, deckIndex + 3);
     $('#weekCardSummary').textContent = `${filtered.length}/${allWeekCards.length} từ · ${topic.title}`;
-    $('#flashcardGrid').innerHTML = visibleCards.length ? `<div class="deck-stack">${visibleCards.map((item, depth) => renderDeckCard(item, depth, deckIndex + depth)).reverse().join('')}</div>` : `<div class="empty-state"><div><h2>Không tìm thấy thẻ phù hợp</h2><p>${allWeekCards.length ? 'Thử xóa từ khóa hoặc đổi bộ lọc.' : 'Chọn “Đã nhớ” ở màn Hôm nay, từ sẽ tự xuất hiện tại đây.'}</p></div></div>`;
+    $('#flashcardGrid').innerHTML = visibleCards.length ? `<div class="deck-stack">${visibleCards.map((item, depth) => renderDeckCard(item, depth, deckIndex + depth)).reverse().join('')}</div>` : `<div class="empty-state"><div><h2>Không tìm thấy thẻ phù hợp</h2><p>${allWeekCards.length ? 'Thử xóa từ khóa hoặc đổi bộ lọc.' : 'Vượt qua bài kiểm tra ở màn Hôm nay, từ sẽ xuất hiện tại đây.'}</p></div></div>`;
 
     $('#cardPagination').classList.toggle('hidden', !filtered.length);
     $('#deckHint').classList.toggle('hidden', !filtered.length);
@@ -842,6 +1050,7 @@
       back.setAttribute('aria-hidden', String(!flipped));
       front.toggleAttribute('inert', flipped);
       back.toggleAttribute('inert', !flipped);
+      if (flipped) activateExamples(back);
     };
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -877,7 +1086,7 @@
 
   function startDeckSwipe(event) {
     const card = event.target.closest('.deck-card.is-active');
-    if (!card || event.target.closest('[data-audio-id]') || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    if (!card || event.target.closest('button.example-voice, .new-examples, a, [data-audio-id]') || (event.pointerType === 'mouse' && event.button !== 0)) return;
     deckPointer = { id: event.pointerId, startX: event.clientX, startY: event.clientY, card };
     deckDidDrag = false;
     card.setPointerCapture?.(event.pointerId);
@@ -965,48 +1174,88 @@
     submit.disabled = true;
     submit.textContent = 'Đang kết nối…';
     try {
-      const response = await fetch('/api/auth', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ displayName: $('#displayNameInput').value.trim(), profileId: $('#profileIdInput').value.trim(), pin: $('#pinInput').value })
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Không thể kết nối.');
-      profile = { profileId: result.profileId, displayName: result.displayName };
+      const input = $('#syncServerInput').value.trim();
+      if (!input && isPages) throw new Error(window.SyncAPI.unavailable);
+      const server = input ? window.SyncAPI.serverOrigin(input) : '';
+      const client = window.SyncAPI.create({ origin: server });
+      // Check the endpoint before sending the PIN to a static site or wrong URL.
+      const health = await client('health');
+      if (health.service !== 'vocab-sync' || health.version !== 1) throw new Error(window.SyncAPI.unavailable);
+      clearTimeout(syncTimer);
+      if (syncInFlight) await syncInFlight;
+      syncGeneration += 1;
+      const result = await client('auth', { method: 'POST', body: JSON.stringify({
+        displayName: $('#displayNameInput').value.trim(), profileId: $('#profileIdInput').value.trim(), pin: $('#pinInput').value
+      }) });
+      if (!result.profileId || (server && !result.token)) throw new Error('Máy chủ chưa hỗ trợ kết nối từ trang này. Hãy cập nhật máy chủ Vocab.');
+      profile = { profileId: result.profileId, displayName: result.displayName, server, token: server ? result.token : '' };
       localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-      const remote = await fetch('/api/simple-progress');
-      if (remote.ok) state = mergeState(state, (await remote.json()).progress);
+      localStorage.setItem(SYNC_SERVER_KEY, server);
+      $('#pinInput').value = '';
+      const remote = await syncClient()('simple-progress');
+      state = mergeState(state, remote.progress);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      await syncProgress();
+      if (!await syncProgress()) throw new Error('Đã đăng nhập nhưng chưa tải tiến độ lên được. Tiến độ vẫn được giữ trên máy; hãy thử lại.');
       sessionDate = '';
       $('#profileDialog').close();
       showToast('Đã kết nối và hợp nhất tiến độ trên các thiết bị.');
-      renderToday();
-    } catch (reason) {
-      error.textContent = reason.message === 'Failed to fetch' ? 'Không kết nối được máy chủ.' : reason.message;
-    } finally {
-      submit.disabled = false;
-      submit.textContent = 'Kết nối và đồng bộ';
-    }
+      switchView(document.body.dataset.activeView || 'today');
+    } catch (reason) { error.textContent = reason.message; }
+    finally { submit.disabled = false; submit.textContent = 'Kết nối và đồng bộ'; }
   }
 
   async function restoreSession() {
     if (!profile) return;
+    if (isPages && !profile.server) return setSyncStatus('Trên máy', false);
+    const generation = syncGeneration;
     setSyncStatus('Đang lưu…', false);
     try {
-      const response = await fetch('/api/simple-progress');
-      if (!response.ok) return setSyncStatus('Đăng nhập', false);
-      state = mergeState(state, (await response.json()).progress);
+      const result = await syncClient()('simple-progress');
+      if (generation !== syncGeneration) return;
+      state = mergeState(state, result.progress);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      setSyncStatus('Đã lưu', true);
       sessionDate = '';
-      renderToday();
-      renderNavigation();
-    } catch {
-      setSyncStatus('Trên máy', false);
-    }
+      switchView(document.body.dataset.activeView || 'today');
+      await syncProgress();
+    } catch (error) { setSyncStatus(error.status === 401 ? 'Đăng nhập' : 'Chưa đồng bộ', false); }
+  }
+
+  function exportProgress() {
+    const blob = new Blob([JSON.stringify({ format: 'vocab-backup', version: 1, exportedAt: new Date().toISOString(), progress: state }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `vocab-progress-${localDate()}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function importProgress(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    try {
+      if (file.size > 5_000_000) throw new Error('Tệp sao lưu quá lớn (tối đa 5 MB).');
+      let data;
+      try { data = JSON.parse(await file.text()); } catch { throw new Error('Tệp không phải bản sao lưu JSON hợp lệ.'); }
+      if (data?.format !== 'vocab-backup' || data.version !== 1 || !data.progress?.daily || !data.progress?.cards) throw new Error('Đây không phải tệp sao lưu Vocab được hỗ trợ.');
+      const merged = mergeState(state, data.progress);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      state = merged;
+      sessionDate = '';
+      persist();
+      switchView(document.body.dataset.activeView || 'today');
+      $('#profileError').textContent = '';
+      showToast('Đã hợp nhất tiến độ từ bản sao lưu.');
+    } catch (error) { $('#profileError').textContent = error.message; }
+    finally { event.target.value = ''; }
   }
 
   document.addEventListener('click', (event) => {
+    if (event.target.closest('.example-source')) return;
+    const sentence = event.target.closest('[data-sentence]');
+    if (sentence) { playSentence(sentence); return; }
+    const refresh = event.target.closest('[data-new-examples]');
+    if (refresh) { const container = refresh.closest('[data-example-word]'); delete container.dataset.loaded; activateExamples(container.parentElement); return; }
     const nav = event.target.closest('[data-view]');
     if (nav) { event.preventDefault(); switchView(nav.dataset.view); return; }
     const mode = event.target.closest('[data-mode]');
@@ -1036,7 +1285,7 @@
       return;
     }
     if (event.target.closest('[data-again]')) { answerCurrent('again'); return; }
-    if (event.target.closest('[data-learn]')) { answerCurrent('known'); return; }
+    if (event.target.closest('[data-learn]')) { startQuiz([currentStudyItem()?.id], 'study'); return; }
     if (event.target.closest('[data-review-hard]')) { reviewHardWords(); return; }
     const cardFlip = event.target.closest('[data-card-flip]');
     if (cardFlip) {
@@ -1057,6 +1306,7 @@
   });
 
   document.addEventListener('keydown', (event) => {
+    if ($('#quizDialog').open) return;
     if ((event.key === ' ' || event.key === 'Enter') && event.target.matches('[data-flip]')) {
       event.preventDefault();
       toggleStudyCard();
@@ -1097,18 +1347,47 @@
   });
   $('#profileButton').addEventListener('click', () => {
     $('#profileIdInput').value = profile?.profileId || '';
-    $('#profileIdInput').disabled = Boolean(profile);
+    $('#profileIdInput').disabled = false;
+    $('#syncServerInput').value = profile?.server || localStorage.getItem(SYNC_SERVER_KEY) || '';
+    renderCloudControls();
+    $('#profileError').textContent = '';
+    $('#pinInput').value = '';
     $('#logoutButton').classList.toggle('hidden', !profile);
     $('#profileDialog').showModal();
+  });
+  $('#exportProgress').addEventListener('click', exportProgress);
+  $('#importProgress').addEventListener('change', importProgress);
+  $('#googleSyncButton').addEventListener('click', async () => {
+    if (cloudUser) await window.FirebaseSync.syncNow(state);
+    else await window.FirebaseSync.signIn();
+  });
+  $('#cloudLogoutButton').addEventListener('click', async () => {
+    await window.FirebaseSync.signOut();
+    setSyncStatus(profile ? 'Máy chủ riêng' : 'Trên máy', false);
+  });
+  $('#startLibraryTest').addEventListener('click', () => startQuiz(currentDeckCards.map((item) => item.id), 'library'));
+  $('#closeQuiz').addEventListener('click', () => $('#quizDialog').close());
+  $('#quizDialog').addEventListener('close', () => {
+    quiz = null;
+    window.speechSynthesis?.cancel();
+    currentAudio?.pause();
+    if (document.body.dataset.activeView === 'cards') renderCards();
   });
   $('#closeProfile').addEventListener('click', () => $('#profileDialog').close());
   $('#profileForm').addEventListener('submit', handleProfile);
   $('#logoutButton').addEventListener('click', async () => {
-    try { await fetch('/api/logout', { method: 'POST' }); } catch { /* local logout */ }
+    clearTimeout(syncTimer);
+    syncGeneration += 1;
+    try { await syncClient()('logout', { method: 'POST' }); } catch { /* local logout */ }
     profile = null;
     localStorage.removeItem(PROFILE_KEY);
     setSyncStatus('Trên máy', false);
     $('#profileDialog').close();
+  });
+  window.addEventListener('storage', (event) => {
+    if (event.key !== STORAGE_KEY || !event.newValue) return;
+    state = mergeState(state, parseJson(event.newValue, null));
+    renderNavigation();
   });
   window.addEventListener('online', () => profile && scheduleSync());
   window.addEventListener('offline', () => setSyncStatus('Trên máy', false));
@@ -1117,6 +1396,7 @@
   renderNavigation();
   switchView(location.hash.slice(1) && $(`#view-${location.hash.slice(1)}`) ? location.hash.slice(1) : 'today');
   restoreSession();
+  initializeCloudSync();
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
