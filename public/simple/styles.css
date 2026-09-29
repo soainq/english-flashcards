@@ -109,10 +109,10 @@ kbd { padding: 2px 5px; border: 1px solid var(--line); border-bottom-width: 2px;
 .filter-group button.active { color: #fff; background: var(--brand); }
 .cards-toolbar > span { color: var(--muted); font-size: 12px; }
 .flashcard-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
-.flashcard { min-height: 275px; perspective: 1000px; cursor: pointer; }
-.flashcard-inner { min-height: 275px; position: relative; transform-style: preserve-3d; transition: transform .4s ease; }
-.flashcard.flipped .flashcard-inner { transform: rotateY(180deg); }
-.flash-face { position: absolute; inset: 0; padding: 22px; border: 1px solid var(--line); border-radius: 19px; background: var(--surface); backface-visibility: hidden; box-shadow: 0 9px 25px rgba(25,43,38,.05); }
+.flashcard { min-height: 275px; cursor: pointer; }
+.flashcard-inner { min-height: 275px; position: relative; }
+.flash-face { position: absolute; inset: 0; padding: 22px; visibility: hidden; border: 1px solid var(--line); border-radius: 19px; background: var(--surface); box-shadow: 0 9px 25px rgba(25,43,38,.05); }
+.flashcard:not(.flipped) .flash-front, .flashcard.flipped .flash-back { visibility: visible; animation: cardFaceIn .16s ease-out both; }
 .flash-front { display: flex; flex-direction: column; justify-content: space-between; }
 .flash-front > div:first-child { display: flex; justify-content: space-between; }
 .counter { color: var(--muted); font-size: 11px; }
@@ -121,7 +121,7 @@ kbd { padding: 2px 5px; border: 1px solid var(--line); border-bottom-width: 2px;
 .voice-mini { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; color: var(--brand); background: var(--brand-soft); }
 .voice-mini svg { width: 17px; }
 .flip-hint { color: #5e6964; text-align: center; font-size: 11px; }
-.flash-back { transform: rotateY(180deg); overflow: auto; background: #f2f8f6; }
+.flash-back { overflow: auto; background: #f2f8f6; }
 .flash-back h3 { margin: 7px 0 14px; color: var(--brand); font-size: 20px; }
 .flash-back ol { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
 .flash-back li { font-size: 12px; line-height: 1.45; }
@@ -174,20 +174,16 @@ dialog input { height: 44px; padding: 0 12px; border: 1px solid var(--line); bor
 .study-card-sheet { position: absolute; inset: 4px; min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); box-shadow: var(--shadow); transform-origin: center bottom; }
 .card-stage { min-height: 0; overflow: hidden; }
 .card-topline { z-index: 5; }
-.study-flip-card { width: 100%; height: 100%; perspective: 1200px; }
-.study-flip-inner { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform .48s cubic-bezier(.2,.72,.25,1); will-change: transform; }
-.study-flip-card.flipped .study-flip-inner { transform: rotateY(180deg); }
+.study-flip-card { width: 100%; height: 100%; }
+.study-flip-inner { width: 100%; height: 100%; position: relative; }
 .study-face {
   position: absolute;
   inset: 0;
   visibility: hidden;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  transition: visibility 0s linear .24s;
 }
-.study-face[aria-hidden="false"] { visibility: visible; }
-.study-front { transform: rotateY(0deg) translateZ(1px); }
-.study-back { transform: rotateY(180deg) translateZ(1px); overflow: auto; }
+.study-face[aria-hidden="false"] { visibility: visible; animation: cardFaceIn .16s ease-out both; }
+.study-back { overflow: auto; }
+@keyframes cardFaceIn { from { opacity: 0; } to { opacity: 1; } }
 .flip-surface { width: 100%; height: 100%; min-height: 0; padding: 72px clamp(26px,6vw,58px) 84px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 18px; color: inherit; background: transparent; text-align: center; }
 .flip-surface:hover { background: rgba(23,107,91,.025); }
 .word-display, .meaning-view { width: 100%; display: flex; flex-direction: column; align-items: center; }
@@ -249,21 +245,20 @@ dialog input { height: 44px; padding: 0 12px; border: 1px solid var(--line); bor
 
 /* One stacked deck: tap to flip, swipe to reveal the next card. */
 .flashcard-deck { min-height: 470px; display: grid; place-items: center; }
-.deck-stack { width: min(100%,570px); height: 430px; position: relative; perspective: 1300px; }
+.deck-stack { width: min(100%,570px); height: 430px; position: relative; }
 .deck-card { --drag-x: 0px; --drag-y: 0px; --drag-rotate: 0deg; position: absolute; inset: 0; z-index: calc(30 - var(--deck-depth)); transform: translateY(calc(var(--deck-depth) * 13px)) scale(calc(1 - var(--deck-depth) * .035)); transform-origin: center bottom; transition: transform .28s ease, opacity .24s ease; }
 .deck-card[aria-hidden="true"] { pointer-events: none; }
-.deck-card.is-active { touch-action: pan-y; transform: translate(var(--drag-x), var(--drag-y)) rotate(var(--drag-rotate)); }
-.deck-card.is-active.dragging { transition: none; cursor: grabbing; }
+.deck-card.is-active { touch-action: pan-y; transform: none; }
+.deck-card.is-active.dragging { transform: translate(var(--drag-x), var(--drag-y)) rotate(var(--drag-rotate)); transition: none; cursor: grabbing; }
 .deck-card.swipe-left { transform: translateX(-135%) rotate(-13deg); opacity: 0; }
 .deck-card.swipe-right { transform: translateX(135%) rotate(13deg); opacity: 0; }
-.deck-card-inner { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; will-change: transform; }
+.deck-card-inner { width: 100%; height: 100%; position: relative; }
 .deck-card-inner.flip-out { animation: deckFlipOut .18s cubic-bezier(.4,0,1,1) both; }
 .deck-card-inner.flip-in { animation: deckFlipIn .24s cubic-bezier(0,0,.2,1) both; }
-@keyframes deckFlipOut { to { transform: perspective(1000px) rotateY(90deg) scale(.97); } }
-@keyframes deckFlipIn { from { transform: perspective(1000px) rotateY(-90deg) scale(.97); } to { transform: perspective(1000px) rotateY(0) scale(1); } }
-.deck-face { position: absolute; inset: 0; padding: 24px; display: flex; flex-direction: column; visibility: hidden; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 20px 55px rgba(25,43,38,.13); overflow: hidden; }
+@keyframes deckFlipOut { to { opacity: 0; } }
+@keyframes deckFlipIn { from { opacity: 0; } to { opacity: 1; } }
+.deck-face { position: absolute; inset: 0; padding: 24px; display: flex; flex-direction: column; visibility: hidden; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); box-shadow: 0 20px 55px rgba(25,43,38,.13); overflow: hidden; }
 .deck-face[aria-hidden="false"] { visibility: visible; }
-.deck-front, .deck-back { transform: translateZ(1px); }
 .deck-back { background: #f2f8f6; }
 .deck-card:not(.flipped) .deck-back, .deck-card.flipped .deck-front { pointer-events: none; }
 .deck-flip-surface { width: 100%; min-height: 0; flex: 1; padding: 24px 16px 72px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 16px; color: inherit; background: transparent; text-align: center; touch-action: pan-y; }
@@ -559,10 +554,7 @@ dialog input { height: 44px; padding: 0 12px; border: 1px solid var(--line); bor
 .example-container { display: block; width: 100%; min-width: 0; }
 .example-list { padding-left: 0; }
 .example-status { display: block; margin: 10px 0; color: var(--muted); font-size: 12px; }
-.example-source { display: inline-block; color: var(--brand-dark); font-size: 10px; line-height: 1.2; text-underline-offset: 2px; }
-.example-source + .example-source { margin-inline-start: 6px; }
 .example-copy { overflow-wrap: anywhere; }
-.new-examples { margin-top: 8px; min-height: 32px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--brand); font-size: 12px; }
 .library-controls { grid-template-columns: minmax(0,1fr) auto auto; }
 .library-test { padding: 0 14px; min-height: 48px; }
 .completion-panel { min-height: 0; height: 100%; overflow-y: auto; }
@@ -621,7 +613,6 @@ dialog input { height: 44px; padding: 0 12px; border: 1px solid var(--line); bor
   .meaning-view .meaning-word, .meaning-view > .ipa { display: none; }
   .meaning-view > strong { margin-top: 0; }
   .example-list, .deck-examples { gap: 5px; }
-  .new-examples { margin-top: 4px; }
   .source-note { padding: 12px; }
 }
 @media (max-width: 800px) {
@@ -629,7 +620,6 @@ dialog input { height: 44px; padding: 0 12px; border: 1px solid var(--line); bor
   .library-test { min-height: 38px; padding: 0 8px; font-size: 11px; }
   body[data-active-view="cards"] .status-filters button { padding: 0 6px; }
   .meaning-view { overflow: auto; }
-  .example-source { font-size: 10px; }
   .study-back { overflow: hidden; }
 }
 

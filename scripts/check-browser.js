@@ -28,11 +28,15 @@ const { server } = require('../server');
     const word = await page.locator('.word-display strong').textContent();
     await page.locator('[data-study-face="front"]').click();
     await page.waitForFunction(() => document.querySelectorAll('#learnCard .example-row').length === 3);
-    const firstExamples = await page.locator('#learnCard .example-copy > span').allTextContents();
-    await page.locator('#learnCard [data-new-examples]').click();
-    await page.waitForFunction(() => document.querySelectorAll('#learnCard .example-row').length === 3);
-    const nextExamples = await page.locator('#learnCard .example-copy > span').allTextContents();
-    assert.equal(firstExamples.filter((text) => nextExamples.includes(text)).length, 0);
+    assert.equal(await page.locator('#learnCard .example-copy > span').count(), 3);
+    assert.equal(await page.locator('#learnCard .example-copy small').count(), 3);
+    assert.equal(await page.locator('#learnCard .example-source, #learnCard [data-new-examples]').count(), 0);
+    const studyFaceEffects = await page.locator('#learnCard [data-study-face="back"]').evaluate((element) => ({
+      filter: getComputedStyle(element).filter,
+      transform: getComputedStyle(element).transform,
+      parentTransform: getComputedStyle(element.parentElement).transform
+    }));
+    assert.deepEqual(studyFaceEffects, { filter: 'none', transform: 'none', parentTransform: 'none' });
     await page.locator('[data-learn]').click();
     assert.equal(await page.locator('#quizBody').textContent().then((text) => text.includes(word)), false);
     assert.equal(await page.locator('.answer-mask').textContent(), word.replace(/[a-z]/gi, '_'));
@@ -91,6 +95,14 @@ const { server } = require('../server');
         if (size.width > 800 && view !== 'week') {
           assert.ok(measure.page <= 1, `Page scroll: ${JSON.stringify({ ...size, ...measure })}`);
           assert.ok(measure.inner.every((el) => el.delta <= 1), `Card scroll: ${JSON.stringify({ ...size, ...measure })}`);
+        }
+        if (view === 'cards') {
+          const effects = await page.locator('.deck-card.is-active .deck-face[aria-hidden="false"]').evaluate((element) => ({
+            filter: getComputedStyle(element).filter,
+            transform: getComputedStyle(element).transform,
+            parentTransform: getComputedStyle(element.parentElement).transform
+          }));
+          assert.deepEqual(effects, { filter: 'none', transform: 'none', parentTransform: 'none' });
         }
       }
     }

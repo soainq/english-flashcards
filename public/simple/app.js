@@ -413,10 +413,8 @@
       examples.commit(result.rows);
       container.innerHTML = `<span class="${container.dataset.listClass}" role="list">${result.rows.map((row, index) => {
         const translation = row.translation || row.translations?.[0]?.text || '';
-        const source = row.source ? `<a class="example-source" href="${escapeAttribute(row.source)}" target="_blank" rel="noopener noreferrer" title="${escapeAttribute(`${row.author} · ${row.license}`)}">Tatoeba · ${escapeAttribute(row.author)} · ${escapeAttribute(row.license)}</a>` : '';
-        const translationSource = row.translations?.[0] ? `<a class="example-source" href="${escapeAttribute(row.translations[0].source)}" target="_blank" rel="noopener noreferrer" title="${escapeAttribute(row.translations[0].license)}">Dịch: ${escapeAttribute(row.translations[0].author)} · ${escapeAttribute(row.translations[0].license)}</a>` : '';
-        return `<span class="example-row" role="listitem"><i aria-hidden="true">${index + 1}</i><span class="example-copy"><span>${escapeAttribute(row.text)}</span>${translation ? `<small>${escapeAttribute(translation)}</small>` : ''}${source}${translationSource}</span><button type="button" class="example-voice" data-sentence="${escapeAttribute(row.text)}" data-sentence-audio="${escapeAttribute(row.audio || '')}" aria-label="Nghe câu mẫu ${index + 1}">${voiceIcon}</button></span>`;
-      }).join('')}</span>${result.rows.length < 3 ? `<span class="example-status" role="status">${result.offline ? 'Chưa tải được đủ câu mới. Kiểm tra mạng rồi thử lại.' : 'Chưa có đủ câu mới cho từ này. Những câu đã xem sẽ không được lặp lại.'}</span>` : ''}<button type="button" class="new-examples" data-new-examples>${result.rows.length ? 'Đổi câu mẫu' : 'Tìm câu mới'}</button>`;
+        return `<span class="example-row" role="listitem"><i aria-hidden="true">${index + 1}</i><span class="example-copy"><span>${escapeAttribute(row.text)}</span>${translation ? `<small>${escapeAttribute(translation)}</small>` : ''}</span><button type="button" class="example-voice" data-sentence="${escapeAttribute(row.text)}" data-sentence-audio="${escapeAttribute(row.audio || '')}" aria-label="Nghe câu mẫu ${index + 1}">${voiceIcon}</button></span>`;
+      }).join('')}</span>${result.rows.length < 3 ? `<span class="example-status" role="status">${result.offline ? 'Chưa tải được đủ câu mới. Kiểm tra kết nối mạng.' : 'Chưa có đủ câu mẫu cho từ này.'}</span>` : ''}`;
     }
   }
 
@@ -1086,7 +1084,7 @@
 
   function startDeckSwipe(event) {
     const card = event.target.closest('.deck-card.is-active');
-    if (!card || event.target.closest('button.example-voice, .new-examples, a, [data-audio-id]') || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    if (!card || event.target.closest('button.example-voice, a, [data-audio-id]') || (event.pointerType === 'mouse' && event.button !== 0)) return;
     deckPointer = { id: event.pointerId, startX: event.clientX, startY: event.clientY, card };
     deckDidDrag = false;
     card.setPointerCapture?.(event.pointerId);
@@ -1251,11 +1249,8 @@
   }
 
   document.addEventListener('click', (event) => {
-    if (event.target.closest('.example-source')) return;
     const sentence = event.target.closest('[data-sentence]');
     if (sentence) { playSentence(sentence); return; }
-    const refresh = event.target.closest('[data-new-examples]');
-    if (refresh) { const container = refresh.closest('[data-example-word]'); delete container.dataset.loaded; activateExamples(container.parentElement); return; }
     const nav = event.target.closest('[data-view]');
     if (nav) { event.preventDefault(); switchView(nav.dataset.view); return; }
     const mode = event.target.closest('[data-mode]');
