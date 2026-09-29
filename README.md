@@ -128,10 +128,10 @@ FORCE_AUDIO=1 npm run audio
 
 Ứng dụng dùng [Tatoeba API v1](https://api.tatoeba.org/) công khai, không cần khóa API. Mỗi lượt chọn ngẫu nhiên tối đa ba câu ngắn chứa đúng từ/cụm từ, bỏ câu chưa được duyệt và câu không có người sở hữu. Các câu cũ sinh bằng cách thay từ vào cùng khuôn đã bị loại khỏi nguồn dự phòng.
 
-- Lưu lịch sử theo nội dung câu đã chuẩn hóa, dùng chung giữa các từ, các buổi học và ôn tập. Lật lại cùng thẻ vẫn giữ câu hiện tại; **Đổi câu mẫu** lấy lượt mới.
+- Lưu lịch sử theo nội dung câu đã chuẩn hóa, dùng chung giữa các từ, các buổi học và ôn tập. Lật lại cùng thẻ vẫn giữ câu hiện tại; thẻ khác sẽ ưu tiên câu chưa từng xuất hiện.
 - Lưu đệm câu chưa dùng cho tối đa 30 từ để hỗ trợ mất mạng. Kho câu là hữu hạn: khi hết câu, API lỗi hoặc không có đủ câu phù hợp, giao diện thông báo thay vì tái sử dụng câu đã xem. Không thể cam kết có vô hạn câu cho mọi cụm từ.
 - Ưu tiên nguồn có bản dịch Việt; bản dịch chỉ hiện khi nguồn cung cấp. Câu mới được đọc bằng giọng tiếng Anh của thiết bị; không phát MP3 của câu cũ cho nội dung mới.
-- Mỗi câu và bản dịch có liên kết về Tatoeba, người đóng góp và giấy phép theo dữ liệu API (thường CC BY 2.0 FR). Nội dung cộng đồng có thể có nghĩa khác của từ đa nghĩa.
+- Giao diện thẻ chỉ hiển thị câu tiếng Anh và nghĩa tiếng Việt; thông tin nguồn Tatoeba và giấy phép (thường CC BY 2.0 FR) được ghi chung trong phần nguồn dữ liệu. Nội dung cộng đồng có thể có nghĩa khác của từ đa nghĩa.
 - Lịch sử nằm trong dữ liệu tiến độ: giữ bản sao lưu để tránh mất lịch sử khi xóa dữ liệu trình duyệt. Nhiều thiết bị chỉ chia sẻ lịch sử sau khi hợp nhất/đồng bộ; hai thiết bị cùng học khi mất mạng vẫn có thể gặp cùng câu.
 
 ### Các phương án dự phòng trên GitHub Pages

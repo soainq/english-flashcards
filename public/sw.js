@@ -1,4 +1,4 @@
-const CACHE = 'fluent-uiux-v17';
+const CACHE = 'fluent-uiux-v18';
 const CORE_ASSETS = [
   './',
   'index.html',
@@ -12,7 +12,7 @@ const CORE_ASSETS = [
   'simple/',
   'simple/index.html',
   'simple/styles.css',
-  'simple/styles.css?v=10',
+  'simple/styles.css?v=11',
   'simple/curriculum.js',
   'simple/curriculum.js?v=2',
   'simple/content.js',
@@ -25,7 +25,7 @@ const CORE_ASSETS = [
   'simple/learning.js?v=1',
   'simple/examples.js?v=1',
   'simple/app.js',
-  'simple/app.js?v=13'
+  'simple/app.js?v=14'
 ].map((path) => new URL(path, self.registration.scope).href);
 
 self.addEventListener('install', (event) => {
